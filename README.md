@@ -42,3 +42,18 @@ no backend e nas variáveis protegidas da Vercel. O código também aceita
 
 Sem essas variáveis, a interface continua funcionando e os eventos são aceitos,
 mas não são persistidos.
+
+## Painel administrativo
+
+O painel fica em `/admin` e usa uma sessão assinada, armazenada em cookie
+`httpOnly`. Configure no ambiente:
+
+```env
+ADMIN_EMAIL=
+ADMIN_PASSWORD=
+ADMIN_SESSION_SECRET=
+```
+
+O painel consulta as métricas diretamente do Supabase e permite atualizar os
+campos do perfil público. As chaves do Supabase e as credenciais administrativas
+permanecem somente no servidor.
