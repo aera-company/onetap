@@ -23,6 +23,11 @@ export function createVCard(profile: Profile) {
   if (profile.phone) lines.push(`TEL;TYPE=CELL:${escapeVCardValue(profile.phone)}`);
   if (profile.email) lines.push(`EMAIL;TYPE=INTERNET:${escapeVCardValue(profile.email)}`);
   if (profile.website) lines.push(`URL:${escapeVCardValue(profile.website)}`);
+  if (profile.linkedinUrl) {
+    lines.push(
+      `X-SOCIALPROFILE;TYPE=linkedin:${escapeVCardValue(profile.linkedinUrl)}`,
+    );
+  }
 
   lines.push(`NOTE:${escapeVCardValue(profile.headline)}`, "END:VCARD");
 

@@ -180,6 +180,17 @@ a {
   font-style: italic;
 }
 
+.avatar--brand {
+  overflow: hidden;
+  border-color: var(--ink);
+  background: var(--ink);
+}
+
+.avatar--brand img {
+  width: 27px;
+  height: auto;
+}
+
 .eyebrow {
   margin: 0 0 12px;
   color: var(--moss);

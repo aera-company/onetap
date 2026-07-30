@@ -7,6 +7,7 @@ export type Profile = {
   company: string;
   headline: string;
   bio: string;
+  logoUrl: string;
   email: string;
   phone: string;
   website: string;

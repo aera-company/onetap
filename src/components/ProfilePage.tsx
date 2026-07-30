@@ -1,6 +1,8 @@
+import Image from "next/image";
 import type { Profile } from "@/types/profile";
 import { buildWhatsappUrl } from "@/lib/whatsapp";
 import { ActionLink } from "@/components/ActionLink";
+import { TrackedLink } from "@/components/TrackedLink";
 import {
   ArrowUpRightIcon,
   CalendarIcon,
@@ -49,8 +51,14 @@ export function ProfilePage({ profile, cardCode }: ProfilePageProps) {
         </div>
 
         <div className="hero__identity">
-          <div className="avatar" aria-label={`Iniciais de ${profile.name}`}>
-            {profile.initials}
+          <div className="avatar avatar--brand">
+            <Image
+              src={profile.logoUrl}
+              alt={`Símbolo ${profile.company}`}
+              width={44}
+              height={44}
+              priority
+            />
           </div>
           <p className="eyebrow">{profile.company}</p>
           <h1>{profile.name}</h1>
@@ -138,6 +146,17 @@ export function ProfilePage({ profile, cardCode }: ProfilePageProps) {
         <div className="closing__actions">
           <a href="#top">Voltar ao início</a>
           {profile.email ? <a href={`mailto:${profile.email}`}>Enviar e-mail</a> : null}
+          {profile.linkedinUrl ? (
+            <TrackedLink
+              href={profile.linkedinUrl}
+              eventType="social_click"
+              profileId={profile.id}
+              cardCode={cardCode}
+              external
+            >
+              LinkedIn
+            </TrackedLink>
+          ) : null}
         </div>
       </section>
 
