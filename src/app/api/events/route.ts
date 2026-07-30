@@ -40,7 +40,15 @@ export async function POST(request: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
-    return NextResponse.json({ accepted: true, persisted: false });
+    return NextResponse.json({
+      accepted: true,
+      persisted: false,
+      reason: "not_configured",
+      configured: {
+        url: Boolean(supabaseUrl),
+        key: Boolean(supabaseKey),
+      },
+    });
   }
 
   const userAgent = request.headers.get("user-agent") ?? "";
@@ -78,7 +86,18 @@ export async function POST(request: NextRequest) {
   });
 
   if (!response.ok) {
-    return NextResponse.json({ accepted: true, persisted: false });
+    const errorMessage = (await response.text()).slice(0, 500);
+    console.error("[analytics] Supabase insert failed", {
+      status: response.status,
+      message: errorMessage,
+    });
+
+    return NextResponse.json({
+      accepted: true,
+      persisted: false,
+      reason: "upstream_rejected",
+      upstreamStatus: response.status,
+    });
   }
 
   return NextResponse.json({ accepted: true, persisted: true });

@@ -73,6 +73,11 @@ alter table public.profiles enable row level security;
 alter table public.cards enable row level security;
 alter table public.events enable row level security;
 
+grant select, insert, update, delete on public.profiles to service_role;
+grant select, insert, update, delete on public.cards to service_role;
+grant select, insert, update, delete on public.events to service_role;
+grant usage, select on sequence public.events_id_seq to service_role;
+
 create policy "Public profiles are readable"
   on public.profiles for select
   using (is_active = true);
