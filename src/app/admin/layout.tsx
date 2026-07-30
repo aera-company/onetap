@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "@/app/admin/admin.css";
 
 export const metadata: Metadata = {
@@ -10,6 +10,14 @@ export const metadata: Metadata = {
     index: false,
     follow: false,
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#151a17",
+  colorScheme: "light",
 };
 
 export default function AdminLayout({

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { PwaRegistration } from "@/components/PwaRegistration";
 import "@/app/globals.css";
 
 const siteUrl =
@@ -15,6 +16,27 @@ export const metadata: Metadata = {
     "Um toque transforma um encontro em conexão. Conheça, converse e salve o contato.",
   applicationName: "One Tap",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      {
+        url: "/icons/favicon-32x32.png",
+        type: "image/png",
+        sizes: "32x32",
+      },
+      {
+        url: "/icons/favicon-96x96.png",
+        type: "image/png",
+        sizes: "96x96",
+      },
+    ],
+    apple: [
+      {
+        url: "/icons/apple-touch-icon.png",
+        type: "image/png",
+        sizes: "180x180",
+      },
+    ],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -45,7 +67,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body>
+        {children}
+        <PwaRegistration />
+      </body>
     </html>
   );
 }

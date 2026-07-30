@@ -150,6 +150,142 @@ body:has(.admin-login) {
   border-top: 1px solid #343c37;
 }
 
+.admin-install-app {
+  display: flex;
+  width: 100%;
+  min-height: 58px;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 18px;
+  padding: 9px;
+  border: 1px solid #3b463f;
+  border-radius: 14px;
+  color: #f4f6f2;
+  background: #232b26;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.admin-install-app:hover {
+  border-color: #526158;
+  background: #29332d;
+}
+
+.admin-install-app__icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #4a574f;
+  border-radius: 11px;
+  color: #b9cbbf;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+.admin-install-app > span:last-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-install-app strong {
+  font-size: 0.68rem;
+}
+
+.admin-install-app small {
+  color: #849089;
+  font-size: 0.57rem;
+}
+
+.admin-mobile-install {
+  display: none;
+}
+
+.admin-install-guide {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  padding: 20px;
+  place-items: center;
+}
+
+.admin-install-guide__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(12, 16, 13, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.admin-install-guide__card {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 440px);
+  padding: 30px;
+  border: 1px solid var(--admin-line);
+  border-radius: 24px;
+  color: var(--admin-ink);
+  background: var(--admin-surface);
+  box-shadow: 0 28px 90px rgba(12, 16, 13, 0.28);
+}
+
+.admin-install-guide__mark {
+  position: relative;
+  display: grid;
+  width: 68px;
+  height: 68px;
+  margin-bottom: 30px;
+  place-items: center;
+  border: 1px solid var(--admin-line);
+  border-radius: 50%;
+}
+
+.admin-install-guide__mark::after {
+  position: absolute;
+  inset: 10px;
+  border: 1px solid var(--admin-line);
+  border-radius: 50%;
+  content: "";
+}
+
+.admin-install-guide__mark span {
+  position: relative;
+  z-index: 1;
+  font-family: var(--mono);
+}
+
+.admin-install-guide h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(2.5rem, 8vw, 3.9rem);
+  font-weight: 400;
+  letter-spacing: -0.05em;
+  line-height: 0.95;
+}
+
+.admin-install-guide ol {
+  display: grid;
+  gap: 13px;
+  margin: 28px 0;
+  padding: 20px 0 20px 34px;
+  border-top: 1px solid var(--admin-line);
+  border-bottom: 1px solid var(--admin-line);
+  color: var(--admin-ink-soft);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.admin-install-guide .admin-button {
+  width: 100%;
+}
+
 .admin-operator {
   display: flex;
   align-items: center;
@@ -1833,6 +1969,35 @@ body:has(.admin-login) {
   .admin-mobile-nav a.is-active {
     color: white;
     background: #2b342f;
+  }
+
+  .admin-mobile-install {
+    position: fixed;
+    right: 16px;
+    bottom: calc(86px + env(safe-area-inset-bottom));
+    z-index: 29;
+    display: block;
+  }
+
+  .admin-mobile-install .admin-install-app {
+    width: auto;
+    min-height: 45px;
+    margin: 0;
+    padding: 5px 12px 5px 6px;
+    border-color: #3c4841;
+    border-radius: 14px;
+    background: rgba(23, 28, 25, 0.96);
+    box-shadow: 0 12px 34px rgba(23, 28, 25, 0.2);
+    backdrop-filter: blur(14px);
+  }
+
+  .admin-mobile-install .admin-install-app__icon {
+    width: 33px;
+    height: 33px;
+  }
+
+  .admin-mobile-install .admin-install-app small {
+    display: none;
   }
 
   .admin-login {

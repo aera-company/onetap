@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { InstallOneTap } from "@/components/admin/InstallOneTap";
 
 type AdminShellProps = {
   active: "dashboard" | "cards" | "profile";
@@ -85,6 +86,7 @@ export function AdminShell({
         </div>
 
         <div className="admin-sidebar__footer">
+          <InstallOneTap />
           <div className="admin-operator">
             <span>{profileName.slice(0, 1)}</span>
             <div>
@@ -99,6 +101,10 @@ export function AdminShell({
       </aside>
 
       <main className="admin-main">{children}</main>
+
+      <div className="admin-mobile-install">
+        <InstallOneTap />
+      </div>
 
       <nav className="admin-mobile-nav" aria-label="Navegação móvel">
         <Link

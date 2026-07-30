@@ -70,3 +70,17 @@ Em `/admin/cards` é possível:
 - acompanhar acessos e ações por cartão.
 
 O QR Code é gerado no servidor e não depende de serviços externos.
+
+## PWA One Tap
+
+O painel pode ser instalado na tela inicial como o app **One Tap**. O PWA inclui:
+
+- ícones próprios para iOS e Android;
+- abertura direta em `/admin/dashboard`;
+- atalhos para métricas, cartões e perfil;
+- service worker para ativos estáticos;
+- página segura de indisponibilidade quando estiver sem conexão;
+- instruções de instalação no iPhone e prompt nativo em navegadores compatíveis.
+
+As páginas administrativas e as respostas da API não são armazenadas no cache
+offline.
