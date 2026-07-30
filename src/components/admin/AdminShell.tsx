@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 type AdminShellProps = {
-  active: "dashboard" | "profile";
+  active: "dashboard" | "cards" | "profile";
   children: ReactNode;
   profileName?: string;
 };
@@ -21,6 +21,15 @@ function ProfileIcon() {
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <circle cx="12" cy="8" r="3.5" />
       <path d="M5 20c.7-4 3.1-6 7-6s6.3 2 7 6" />
+    </svg>
+  );
+}
+
+function CardIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3.5" y="5" width="17" height="14" rx="2.5" />
+      <path d="M7 14c1.6-1.6 1.6-4.4 0-6m3 8.5c3-3 3-8 0-11" />
     </svg>
   );
 }
@@ -59,6 +68,13 @@ export function AdminShell({
               Visão geral
             </Link>
             <Link
+              className={active === "cards" ? "is-active" : ""}
+              href="/admin/cards"
+            >
+              <CardIcon />
+              Cartões
+            </Link>
+            <Link
               className={active === "profile" ? "is-active" : ""}
               href="/admin/profile"
             >
@@ -91,6 +107,13 @@ export function AdminShell({
         >
           <SignalIcon />
           Visão geral
+        </Link>
+        <Link
+          className={active === "cards" ? "is-active" : ""}
+          href="/admin/cards"
+        >
+          <CardIcon />
+          Cartões
         </Link>
         <Link
           className={active === "profile" ? "is-active" : ""}

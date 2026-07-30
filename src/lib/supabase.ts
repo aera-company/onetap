@@ -34,6 +34,7 @@ type SupabaseCardRow = {
   campaign: string | null;
   location: string | null;
   is_active: boolean;
+  created_at?: string;
 };
 
 export type DashboardEvent = {
@@ -74,6 +75,12 @@ export type DashboardData = {
     count: number;
   } | null;
   cards: Card[];
+};
+
+export type CardInsight = Card & {
+  views: number;
+  actions: number;
+  createdAt: string;
 };
 
 const actionLabels: Partial<Record<EventType, string>> = {
@@ -310,6 +317,88 @@ export async function getDashboardData(
     topCard,
     cards,
   };
+}
+
+export async function getCardManagementData(slug = "tiago") {
+  const profile = await getRuntimeProfile(slug, true);
+  if (!profile) throw new Error("Perfil administrativo não encontrado.");
+
+  const [cardRows, events] = await Promise.all([
+    supabaseRequest<SupabaseCardRow[]>(
+      `cards?select=*&profile_id=eq.${profile.id}&order=created_at.asc`,
+    ),
+    supabaseRequest<Array<{ card_code: string | null; event_type: EventType }>>(
+      `events?select=card_code,event_type&profile_id=eq.${profile.id}&limit=10000`,
+    ),
+  ]);
+
+  const cards: CardInsight[] = cardRows.map((row) => {
+    const card = mapCard(row);
+    const cardEvents = events.filter((event) => event.card_code === card.code);
+
+    return {
+      ...card,
+      views: cardEvents.filter((event) => event.event_type === "page_view").length,
+      actions: cardEvents.filter((event) => event.event_type !== "page_view").length,
+      createdAt: row.created_at ?? new Date().toISOString(),
+    };
+  });
+
+  return { profile, cards };
+}
+
+export type CardInput = {
+  profileId: string;
+  code: string;
+  label: string;
+  campaign: string;
+  location: string;
+  isActive: boolean;
+};
+
+export async function getAdminCard(cardId: string) {
+  const rows = await supabaseRequest<SupabaseCardRow[]>(
+    `cards?select=*&id=eq.${encodeURIComponent(cardId)}&limit=1`,
+  );
+  return rows[0] ? mapCard(rows[0]) : undefined;
+}
+
+export async function createRuntimeCard(input: CardInput) {
+  const rows = await supabaseRequest<SupabaseCardRow[]>("cards", {
+    method: "POST",
+    prefer: "return=representation",
+    body: JSON.stringify({
+      profile_id: input.profileId,
+      card_code: input.code,
+      label: input.label || null,
+      campaign: input.campaign || null,
+      location: input.location || null,
+      is_active: input.isActive,
+    }),
+  });
+
+  if (!rows[0]) throw new Error("O cartão não foi criado.");
+  return mapCard(rows[0]);
+}
+
+export async function updateRuntimeCard(cardId: string, input: CardInput) {
+  const rows = await supabaseRequest<SupabaseCardRow[]>(
+    `cards?id=eq.${encodeURIComponent(cardId)}&profile_id=eq.${encodeURIComponent(input.profileId)}`,
+    {
+      method: "PATCH",
+      prefer: "return=representation",
+      body: JSON.stringify({
+        card_code: input.code,
+        label: input.label || null,
+        campaign: input.campaign || null,
+        location: input.location || null,
+        is_active: input.isActive,
+      }),
+    },
+  );
+
+  if (!rows[0]) throw new Error("O cartão não foi atualizado.");
+  return mapCard(rows[0]);
 }
 
 export type ProfileUpdate = {

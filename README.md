@@ -57,3 +57,16 @@ ADMIN_SESSION_SECRET=
 O painel consulta as métricas diretamente do Supabase e permite atualizar os
 campos do perfil público. As chaves do Supabase e as credenciais administrativas
 permanecem somente no servidor.
+
+### Cartões NFC e QR Code
+
+Em `/admin/cards` é possível:
+
+- criar cartões com código permanente;
+- identificar campanha e local;
+- ativar ou pausar um cartão;
+- copiar a URL exata para gravação em uma tag NFC;
+- gerar e baixar o QR Code em SVG;
+- acompanhar acessos e ações por cartão.
+
+O QR Code é gerado no servidor e não depende de serviços externos.
