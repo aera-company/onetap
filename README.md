@@ -34,7 +34,11 @@ publicação.
 
 1. Execute `supabase/schema.sql` no SQL Editor do projeto.
 2. Copie `.env.example` para `.env.local`.
-3. Preencha `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`.
+3. Preencha `SUPABASE_URL` e `SUPABASE_SECRET_KEY`.
+
+Use uma chave de servidor no formato `sb_secret_...`. Ela deve permanecer apenas
+no backend e nas variáveis protegidas da Vercel. O código também aceita
+`SUPABASE_SERVICE_ROLE_KEY` para projetos que ainda usam a chave JWT legada.
 
 Sem essas variáveis, a interface continua funcionando e os eventos são aceitos,
 mas não são persistidos.
