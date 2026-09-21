@@ -9,8 +9,9 @@ type ActionLinkProps = {
   icon: ReactNode;
   label: string;
   description?: string;
-  eventType: EventType;
-  profileId: string;
+  /** `null` quando o evento é registrado no servidor, para não contar duas vezes. */
+  eventType: EventType | null;
+  slug: string;
   cardCode?: string;
   primary?: boolean;
   external?: boolean;
@@ -22,7 +23,7 @@ export function ActionLink({
   label,
   description,
   eventType,
-  profileId,
+  slug,
   cardCode,
   primary,
   external,
@@ -47,7 +48,11 @@ export function ActionLink({
     <a
       className={className}
       href={href}
-      onClick={() => trackEvent({ profileId, cardCode, eventType })}
+      onClick={
+        eventType
+          ? () => trackEvent({ slug, cardCode, eventType })
+          : undefined
+      }
       target={external ? "_blank" : undefined}
       rel={external ? "noreferrer" : undefined}
     >

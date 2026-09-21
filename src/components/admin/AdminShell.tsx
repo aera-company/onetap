@@ -4,15 +4,25 @@ import type { ReactNode } from "react";
 import { InstallOneTap } from "@/components/admin/InstallOneTap";
 
 type AdminShellProps = {
-  active: "dashboard" | "cards" | "profile";
+  active: "dashboard" | "cards" | "leads" | "profile";
   children: ReactNode;
-  profileName?: string;
+  /** Nome do perfil administrado (ou o e-mail, quando não há perfil vinculado). */
+  profileName: string;
 };
 
 function SignalIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M4 12h2m3-5v10m4-13v16m4-11v6m3-3h1" />
+    </svg>
+  );
+}
+
+function LeadIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 6h16v12H4z" />
+      <path d="m4 7 8 6 8-6" />
     </svg>
   );
 }
@@ -35,11 +45,7 @@ function CardIcon() {
   );
 }
 
-export function AdminShell({
-  active,
-  children,
-  profileName = "Tiago Lima",
-}: AdminShellProps) {
+export function AdminShell({ active, children, profileName }: AdminShellProps) {
   return (
     <div className="admin-app">
       <aside className="admin-sidebar">
@@ -74,6 +80,13 @@ export function AdminShell({
             >
               <CardIcon />
               Cartões
+            </Link>
+            <Link
+              className={active === "leads" ? "is-active" : ""}
+              href="/admin/leads"
+            >
+              <LeadIcon />
+              Contatos
             </Link>
             <Link
               className={active === "profile" ? "is-active" : ""}
@@ -120,6 +133,13 @@ export function AdminShell({
         >
           <CardIcon />
           Cartões
+        </Link>
+        <Link
+          className={active === "leads" ? "is-active" : ""}
+          href="/admin/leads"
+        >
+          <LeadIcon />
+          Contatos
         </Link>
         <Link
           className={active === "profile" ? "is-active" : ""}

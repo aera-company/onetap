@@ -3,35 +3,36 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { CopyCardUrl } from "@/components/admin/CopyCardUrl";
-import { hasAdminSession } from "@/lib/admin-auth";
-import { getAdminCard, getRuntimeProfile } from "@/lib/supabase";
+import { NoProfileState } from "@/components/admin/NoProfileState";
+import { getAdminSession } from "@/lib/admin-auth";
+import { getSiteUrl } from "@/lib/site";
+import { getAdminCard, getOwnedProfile } from "@/lib/supabase";
 
 type EditCardPageProps = {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ saved?: string; error?: string }>;
 };
 
-function getSiteUrl() {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
-    "https://onetap-sand.vercel.app"
-  );
-}
-
 export default async function EditCardPage({
   params,
   searchParams,
 }: EditCardPageProps) {
-  if (!(await hasAdminSession())) redirect("/admin");
+  const session = await getAdminSession();
+  if (!session) redirect("/admin");
 
-  const [{ id }, query] = await Promise.all([params, searchParams]);
-  const [card, profile] = await Promise.all([
-    getAdminCard(id),
-    getRuntimeProfile("tiago", true),
+  const [{ id }, query, profile] = await Promise.all([
+    params,
+    searchParams,
+    getOwnedProfile(session.userId),
   ]);
-  if (!card || !profile || card.profileId !== profile.id) notFound();
+  if (!profile) return <NoProfileState active="cards" email={session.email} />;
 
-  const cardUrl = `${getSiteUrl()}/t/${profile.slug}?card=${encodeURIComponent(card.code)}`;
+  // O cartão só é encontrado se pertencer ao perfil deste administrador.
+  const card = await getAdminCard(id, profile.id);
+  if (!card) notFound();
+
+  const siteUrl = await getSiteUrl();
+  const cardUrl = `${siteUrl}/t/${profile.slug}?card=${encodeURIComponent(card.code)}`;
 
   return (
     <AdminShell active="cards" profileName={profile.name}>
@@ -91,7 +92,6 @@ export default async function EditCardPage({
 
           <div className="admin-qr-block">
             {/* The QR endpoint is protected and generated on demand. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={`/api/admin/cards/${card.id}/qr`}
               alt={`QR Code do cartão ${card.label}`}

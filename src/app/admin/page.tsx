@@ -1,6 +1,8 @@
 import Image from "next/image";
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { hasAdminSession, isAdminConfigured } from "@/lib/admin-auth";
+import { getAdminSession, isAdminConfigured } from "@/lib/admin-auth";
+import { hasAnyAdminUser } from "@/lib/supabase";
 
 type AdminLoginPageProps = {
   searchParams: Promise<{ error?: string }>;
@@ -9,15 +11,20 @@ type AdminLoginPageProps = {
 export default async function AdminLoginPage({
   searchParams,
 }: AdminLoginPageProps) {
-  if (await hasAdminSession()) redirect("/admin/dashboard");
+  if (await getAdminSession()) redirect("/admin/dashboard");
 
   const { error } = await searchParams;
   const configured = isAdminConfigured();
 
+  // Sem nenhum administrador cadastrado, "senha incorreta" seria enganoso.
+  const hasAdminUser = configured
+    ? await hasAnyAdminUser().catch(() => true)
+    : false;
+
   return (
     <main className="admin-login">
       <section className="admin-login__intro">
-        <a className="admin-login__brand" href="/t/tiago">
+        <Link className="admin-login__brand" href="/">
           <span>
             <Image
               src="/brand/aera-symbol.png"
@@ -28,7 +35,7 @@ export default async function AdminLoginPage({
             />
           </span>
           ONE TAP
-        </a>
+        </Link>
         <div>
           <p className="admin-kicker">AERA · Control room</p>
           <h1>Encontros viram sinais.</h1>
@@ -60,9 +67,27 @@ export default async function AdminLoginPage({
               E-mail ou senha incorretos. Revise os dados e tente novamente.
             </p>
           ) : null}
+          {error === "limite" ? (
+            <p className="admin-form-message admin-form-message--error">
+              Muitas tentativas deste dispositivo. Aguarde alguns minutos antes
+              de tentar de novo.
+            </p>
+          ) : null}
+          {error === "unavailable" ? (
+            <p className="admin-form-message admin-form-message--error">
+              Não foi possível validar o acesso agora. Tente novamente em
+              instantes.
+            </p>
+          ) : null}
           {!configured || error === "config" ? (
             <p className="admin-form-message admin-form-message--error">
               O acesso administrativo ainda não foi configurado no servidor.
+            </p>
+          ) : null}
+          {configured && !hasAdminUser ? (
+            <p className="admin-form-message admin-form-message--error">
+              Nenhum administrador cadastrado. Rode <code>npm run create-admin</code>{" "}
+              para criar o primeiro acesso.
             </p>
           ) : null}
 
@@ -90,8 +115,8 @@ export default async function AdminLoginPage({
             Acessar painel
             <span aria-hidden="true">↗</span>
           </button>
-          <a className="admin-login__back" href="/t/tiago">
-            Voltar ao perfil público
+          <a className="admin-login__back" href="/privacidade">
+            Política de privacidade
           </a>
         </form>
       </section>

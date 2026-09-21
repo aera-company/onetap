@@ -4,14 +4,14 @@ import { useEffect } from "react";
 import { trackPageView } from "@/lib/analytics";
 
 type ProfileTrackerProps = {
-  profileId: string;
+  slug: string;
   cardCode?: string;
 };
 
-export function ProfileTracker({ profileId, cardCode }: ProfileTrackerProps) {
+export function ProfileTracker({ slug, cardCode }: ProfileTrackerProps) {
   useEffect(() => {
-    trackPageView({ profileId, cardCode });
-  }, [profileId, cardCode]);
+    trackPageView({ slug, cardCode });
+  }, [slug, cardCode]);
 
   return null;
 }

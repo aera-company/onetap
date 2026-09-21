@@ -2149,3 +2149,80 @@ body:has(.admin-login) {
     transform: scale(1.12);
   }
 }
+
+/* Lista de contatos recebidos pelo formulário do perfil público. */
+.admin-leads-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-leads-list article {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 0;
+  border-top: 1px solid var(--admin-line);
+}
+
+.admin-leads-list article:first-child {
+  border-top: 0;
+}
+
+.admin-lead__head {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.admin-lead__head strong {
+  font-size: 0.95rem;
+  font-weight: 550;
+}
+
+.admin-lead__head time {
+  color: var(--admin-ink-soft);
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  white-space: nowrap;
+}
+
+.admin-lead__contacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.admin-lead__contacts a {
+  color: var(--admin-moss);
+  font-size: 0.78rem;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.admin-lead__contacts a:hover {
+  text-decoration: underline;
+}
+
+.admin-leads-list article > p {
+  max-width: 62ch;
+  margin: 0;
+  color: var(--admin-ink-soft);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.admin-lead__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-lead__meta span {
+  padding: 4px 10px;
+  border: 1px solid var(--admin-line);
+  border-radius: 999px;
+  color: var(--admin-ink-soft);
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+}

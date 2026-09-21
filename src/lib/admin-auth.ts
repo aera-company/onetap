@@ -1,81 +1,107 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 
 export const ADMIN_COOKIE_NAME = "onetap_admin";
 const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 7;
 
+export type AdminSession = {
+  userId: string;
+  email: string;
+};
+
+// Web Crypto em vez de node:crypto: o middleware roda no Edge, onde os módulos
+// do Node não existem. Assim há uma implementação só para os dois runtimes.
 function getSessionSecret() {
   return process.env.ADMIN_SESSION_SECRET;
 }
 
-function sign(value: string) {
-  const secret = getSessionSecret();
-  if (!secret) return "";
-  return createHmac("sha256", secret).update(value).digest("base64url");
+function toBase64Url(bytes: Uint8Array) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 }
 
-function safeEqual(left: string, right: string) {
-  const leftBuffer = Buffer.from(left);
-  const rightBuffer = Buffer.from(right);
-  return (
-    leftBuffer.length === rightBuffer.length &&
-    timingSafeEqual(leftBuffer, rightBuffer)
+function fromBase64Url(value: string) {
+  const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
+  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+  return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
+}
+
+function importKey(secret: string) {
+  return crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign", "verify"],
   );
 }
 
+/** Os administradores vivem no Supabase, então ele também precisa estar configurado. */
 export function isAdminConfigured() {
   return Boolean(
-    process.env.ADMIN_EMAIL &&
-      process.env.ADMIN_PASSWORD &&
-      process.env.ADMIN_SESSION_SECRET,
+    process.env.ADMIN_SESSION_SECRET &&
+      process.env.SUPABASE_URL &&
+      (process.env.SUPABASE_SECRET_KEY ??
+        process.env.SUPABASE_SERVICE_ROLE_KEY),
   );
 }
 
-export function validateAdminCredentials(email: string, password: string) {
-  const configuredEmail = process.env.ADMIN_EMAIL ?? "";
-  const configuredPassword = process.env.ADMIN_PASSWORD ?? "";
+export async function createAdminSession(session: AdminSession) {
+  const secret = getSessionSecret();
+  if (!secret) throw new Error("ADMIN_SESSION_SECRET não configurado.");
 
-  if (!isAdminConfigured()) return false;
-  return (
-    safeEqual(email.trim().toLowerCase(), configuredEmail.trim().toLowerCase()) &&
-    safeEqual(password, configuredPassword)
+  const payload = toBase64Url(
+    new TextEncoder().encode(
+      JSON.stringify({
+        userId: session.userId,
+        email: session.email,
+        expiresAt: Date.now() + SESSION_DURATION_SECONDS * 1000,
+      }),
+    ),
   );
+
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    await importKey(secret),
+    new TextEncoder().encode(payload),
+  );
+
+  return `${payload}.${toBase64Url(new Uint8Array(signature))}`;
 }
 
-export function createAdminSession(email: string) {
-  const payload = Buffer.from(
-    JSON.stringify({
-      email: email.trim().toLowerCase(),
-      expiresAt: Date.now() + SESSION_DURATION_SECONDS * 1000,
-    }),
-  ).toString("base64url");
-
-  return `${payload}.${sign(payload)}`;
-}
-
-export function verifyAdminSession(token?: string) {
-  if (!token || !getSessionSecret()) return false;
+export async function verifyAdminSession(
+  token?: string,
+): Promise<AdminSession | null> {
+  const secret = getSessionSecret();
+  if (!token || !secret) return null;
 
   const [payload, signature] = token.split(".");
-  if (!payload || !signature || !safeEqual(signature, sign(payload))) return false;
+  if (!payload || !signature) return null;
 
   try {
-    const session = JSON.parse(
-      Buffer.from(payload, "base64url").toString("utf8"),
-    ) as { email?: string; expiresAt?: number };
-
-    return Boolean(
-      session.email &&
-        session.email === process.env.ADMIN_EMAIL?.trim().toLowerCase() &&
-        session.expiresAt &&
-        session.expiresAt > Date.now(),
+    // subtle.verify compara em tempo constante.
+    const valid = await crypto.subtle.verify(
+      "HMAC",
+      await importKey(secret),
+      fromBase64Url(signature),
+      new TextEncoder().encode(payload),
     );
+    if (!valid) return null;
+
+    const session = JSON.parse(
+      new TextDecoder().decode(fromBase64Url(payload)),
+    ) as { userId?: string; email?: string; expiresAt?: number };
+
+    if (!session.userId || !session.email) return null;
+    if (!session.expiresAt || session.expiresAt <= Date.now()) return null;
+
+    return { userId: session.userId, email: session.email };
   } catch {
-    return false;
+    return null;
   }
 }
 
-export async function hasAdminSession() {
+export async function getAdminSession() {
   const cookieStore = await cookies();
   return verifyAdminSession(cookieStore.get(ADMIN_COOKIE_NAME)?.value);
 }

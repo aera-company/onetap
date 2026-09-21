@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function ProfileNotFound() {
   return (
     <main className="state-page">
@@ -7,7 +9,9 @@ export default function ProfileNotFound() {
         <h1>Este perfil não está disponível.</h1>
         <p>Verifique o endereço ou solicite um novo acesso ao responsável.</p>
       </div>
-      <a href="/">Conhecer o One Tap <span aria-hidden="true">↗</span></a>
+      <Link href="/">
+        Conhecer o One Tap <span aria-hidden="true">↗</span>
+      </Link>
     </main>
   );
 }

@@ -1,4 +1,19 @@
+-- Idempotente: pode ser reexecutado no SQL Editor a qualquer momento.
+
 create extension if not exists "pgcrypto";
+
+-- Administradores do painel. A senha é guardada como hash scrypt no formato
+-- `scrypt$N$r$p$salt$hash` (ver src/lib/password.ts). Cadastre com
+-- `npm run create-admin`.
+create table if not exists public.admin_users (
+  id uuid primary key default gen_random_uuid(),
+  email text not null,
+  password_hash text not null,
+  created_at timestamptz not null default now()
+);
+
+create unique index if not exists admin_users_email_key
+  on public.admin_users (lower(email));
 
 create table if not exists public.profiles (
   id uuid primary key default gen_random_uuid(),
@@ -19,6 +34,9 @@ create table if not exists public.profiles (
   website text,
   linkedin_url text,
   instagram_url text,
+  services jsonb not null default '[]'::jsonb,
+  owner_id uuid references public.admin_users(id) on delete set null,
+  leads_enabled boolean not null default true,
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -40,7 +58,7 @@ create table if not exists public.events (
   profile_id uuid not null references public.profiles(id) on delete cascade,
   card_id uuid references public.cards(id) on delete set null,
   card_code text,
-  session_id uuid not null,
+  session_id uuid,
   event_type text not null check (
     event_type in (
       'page_view',
@@ -49,7 +67,8 @@ create table if not exists public.events (
       'contact_download',
       'calendar_click',
       'website_click',
-      'social_click'
+      'social_click',
+      'lead_submit'
     )
   ),
   referrer text,
@@ -59,9 +78,86 @@ create table if not exists public.events (
   utm_source text,
   utm_medium text,
   utm_campaign text,
-  ip_hash_source text,
   created_at timestamptz not null default now()
 );
+
+-- Contatos deixados pelos visitantes no perfil público. Contêm dados pessoais
+-- de terceiros: RLS ligado e sem nenhuma policy, então só o servidor lê.
+create table if not exists public.leads (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references public.profiles(id) on delete cascade,
+  card_code text,
+  name text not null,
+  email text,
+  phone text,
+  message text,
+  device_type text,
+  referrer text,
+  utm_source text,
+  utm_medium text,
+  utm_campaign text,
+  created_at timestamptz not null default now(),
+  -- Um lead sem nenhuma forma de retorno não serve para nada.
+  constraint leads_contact_present check (
+    coalesce(nullif(btrim(email), ''), nullif(btrim(phone), '')) is not null
+  )
+);
+
+create index if not exists leads_profile_created_at_idx
+  on public.leads(profile_id, created_at desc);
+
+-- Contadores efêmeros de limite de requisição. `key` é um HMAC do IP com o
+-- endpoint — o IP em claro nunca é gravado. As linhas são descartáveis e
+-- varridas pela própria função.
+create table if not exists public.rate_limits (
+  key text not null,
+  window_start timestamptz not null,
+  hits integer not null default 0,
+  primary key (key, window_start)
+);
+
+create index if not exists rate_limits_window_idx
+  on public.rate_limits(window_start);
+
+-- Migrações para bancos criados antes desta versão.
+alter table public.profiles
+  add column if not exists leads_enabled boolean not null default true;
+
+-- Só continha a string constante "available_at_edge": sugeria uma coleta de IP
+-- que nunca existiu. O limite de requisição usa a tabela rate_limits.
+alter table public.events
+  drop column if exists ip_hash_source;
+
+alter table public.events
+  drop constraint if exists events_event_type_check;
+
+alter table public.events
+  add constraint events_event_type_check check (
+    event_type in (
+      'page_view',
+      'presentation_click',
+      'whatsapp_click',
+      'contact_download',
+      'calendar_click',
+      'website_click',
+      'social_click',
+      'lead_submit'
+    )
+  );
+
+alter table public.profiles
+  add column if not exists services jsonb not null default '[]'::jsonb;
+
+alter table public.profiles
+  add column if not exists owner_id uuid references public.admin_users(id)
+  on delete set null;
+
+create index if not exists profiles_owner_id_idx
+  on public.profiles(owner_id);
+
+-- Eventos registrados pelo servidor (ex.: download do .vcf) não têm sessão do browser.
+alter table public.events
+  alter column session_id drop not null;
 
 create index if not exists events_profile_created_at_idx
   on public.events(profile_id, created_at desc);
@@ -69,22 +165,214 @@ create index if not exists events_profile_created_at_idx
 create index if not exists events_card_code_idx
   on public.events(card_code);
 
+-- Suporta as agregações por tipo de evento e por cartão.
+create index if not exists events_profile_event_type_idx
+  on public.events(profile_id, event_type);
+
+create index if not exists events_profile_card_code_idx
+  on public.events(profile_id, card_code);
+
 alter table public.profiles enable row level security;
 alter table public.cards enable row level security;
 alter table public.events enable row level security;
 
+-- RLS ligado e sem nenhuma policy: só o service_role (servidor) enxerga
+-- credenciais de administrador. Nunca exponha esta tabela à chave anon.
+alter table public.admin_users enable row level security;
+
+-- Mesma regra para leads: dados pessoais de visitantes, nunca públicos.
+alter table public.leads enable row level security;
+alter table public.rate_limits enable row level security;
+
+grant select, insert, update, delete on public.admin_users to service_role;
+grant select, insert, update, delete on public.leads to service_role;
+grant select, insert, update, delete on public.rate_limits to service_role;
 grant select, insert, update, delete on public.profiles to service_role;
 grant select, insert, update, delete on public.cards to service_role;
 grant select, insert, update, delete on public.events to service_role;
 grant usage, select on sequence public.events_id_seq to service_role;
 
+drop policy if exists "Public profiles are readable" on public.profiles;
 create policy "Public profiles are readable"
   on public.profiles for select
   using (is_active = true);
 
+drop policy if exists "Active cards are readable" on public.cards;
 create policy "Active cards are readable"
   on public.cards for select
   using (is_active = true);
 
 -- Events are written only by the server with the service role.
 -- Admin write policies should be added together with Supabase Auth in phase 3.
+
+-- ---------------------------------------------------------------------------
+-- Agregações do painel
+--
+-- O painel costumava baixar os últimos N eventos e somar em JavaScript, o que
+-- tornava "total desde o início" um "total dos últimos N". Estas funções fazem
+-- a contagem no banco, sobre a tabela inteira.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.onetap_dashboard_stats(p_profile_id uuid)
+returns jsonb
+language sql
+stable
+set search_path = public
+as $$
+  with scoped as (
+    select event_type, card_code, created_at
+    from public.events
+    where profile_id = p_profile_id
+  ),
+  totals as (
+    select
+      count(*) filter (where event_type = 'page_view') as total_views,
+      count(*) filter (
+        where event_type = 'page_view' and created_at >= now() - interval '7 days'
+      ) as views_last_7_days,
+      count(*) filter (
+        where event_type = 'page_view' and created_at >= now() - interval '30 days'
+      ) as views_last_30_days,
+      count(*) filter (where event_type <> 'page_view') as action_count
+    from scoped
+  ),
+  action_counts as (
+    select coalesce(jsonb_object_agg(event_type, total), '{}'::jsonb) as items
+    from (
+      select event_type, count(*) as total
+      from scoped
+      where event_type <> 'page_view'
+      group by event_type
+    ) grouped
+  ),
+  -- Os dias são fechados no fuso de São Paulo, não em UTC. A série é gerada
+  -- sobre inteiros (não sobre datas) para evitar a ambiguidade de overload
+  -- entre generate_series(timestamp,...) e generate_series(timestamptz,...).
+  day_series as (
+    select (now() at time zone 'America/Sao_Paulo')::date - offset_days as day
+    from generate_series(6, 0, -1) as offset_days
+  ),
+  daily_counts as (
+    select
+      (created_at at time zone 'America/Sao_Paulo')::date as day,
+      count(*) as total
+    from scoped
+    where event_type = 'page_view'
+      and created_at >= now() - interval '8 days'
+    group by 1
+  ),
+  daily as (
+    select jsonb_agg(
+      jsonb_build_object(
+        'date', to_char(series.day, 'YYYY-MM-DD'),
+        'count', coalesce(counts.total, 0)
+      )
+      order by series.day
+    ) as items
+    from day_series series
+    left join daily_counts counts on counts.day = series.day
+  ),
+  top_card as (
+    select
+      coalesce(nullif(card_code, ''), 'acesso-direto') as code,
+      count(*) as total
+    from scoped
+    where event_type = 'page_view'
+    group by 1
+    order by total desc, code asc
+    limit 1
+  ),
+  recent as (
+    select
+      jsonb_agg(to_jsonb(recent_rows) order by recent_rows.created_at desc)
+      as items
+    from (
+      select
+        id,
+        event_type,
+        card_code,
+        device_type,
+        utm_source,
+        utm_medium,
+        utm_campaign,
+        created_at
+      from public.events
+      where profile_id = p_profile_id
+      order by created_at desc
+      limit 12
+    ) recent_rows
+  )
+  select jsonb_build_object(
+    'totalViews', totals.total_views,
+    'viewsLast7Days', totals.views_last_7_days,
+    'viewsLast30Days', totals.views_last_30_days,
+    'actionCount', totals.action_count,
+    'actionCounts', action_counts.items,
+    'dailyViews', coalesce(daily.items, '[]'::jsonb),
+    'topCard', (select jsonb_build_object('code', code, 'count', total) from top_card),
+    'recentEvents', coalesce(recent.items, '[]'::jsonb)
+  )
+  from totals, action_counts, daily, recent;
+$$;
+
+create or replace function public.onetap_card_stats(p_profile_id uuid)
+returns table (code text, views bigint, actions bigint)
+language sql
+stable
+set search_path = public
+as $$
+  select
+    events.card_code,
+    count(*) filter (where events.event_type = 'page_view'),
+    count(*) filter (where events.event_type <> 'page_view')
+  from public.events
+  where events.profile_id = p_profile_id
+  group by events.card_code;
+$$;
+
+-- Limite de requisição por janela fixa. Incrementa e decide numa única ida ao
+-- banco, então instâncias serverless diferentes compartilham o mesmo contador.
+-- Devolve true quando a requisição está dentro do limite.
+create or replace function public.onetap_rate_limit(
+  p_key text,
+  p_limit integer,
+  p_window_seconds integer
+)
+returns boolean
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  v_window timestamptz;
+  v_hits integer;
+begin
+  v_window := to_timestamp(
+    floor(extract(epoch from now()) / p_window_seconds) * p_window_seconds
+  );
+
+  insert into public.rate_limits as limits (key, window_start, hits)
+  values (p_key, v_window, 1)
+  on conflict (key, window_start)
+  do update set hits = limits.hits + 1
+  returning limits.hits into v_hits;
+
+  -- Limpeza oportunista: evita depender de um cron para varrer janelas velhas.
+  if random() < 0.01 then
+    delete from public.rate_limits
+    where window_start < now() - interval '1 hour';
+  end if;
+
+  return v_hits <= p_limit;
+end;
+$$;
+
+revoke all on function public.onetap_rate_limit(text, integer, integer) from public;
+grant execute on function public.onetap_rate_limit(text, integer, integer) to service_role;
+
+revoke all on function public.onetap_dashboard_stats(uuid) from public;
+revoke all on function public.onetap_card_stats(uuid) from public;
+grant execute on function public.onetap_dashboard_stats(uuid) to service_role;
+grant execute on function public.onetap_card_stats(uuid) to service_role;
+
+notify pgrst, 'reload schema';

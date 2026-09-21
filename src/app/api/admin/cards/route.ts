@@ -1,10 +1,10 @@
 import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { hasAdminSession } from "@/lib/admin-auth";
+import { getAdminSession } from "@/lib/admin-auth";
 import {
   createRuntimeCard,
-  getRuntimeProfile,
+  getOwnedProfile,
   updateRuntimeCard,
 } from "@/lib/supabase";
 
@@ -23,7 +23,8 @@ const cardSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  if (!(await hasAdminSession())) {
+  const session = await getAdminSession();
+  if (!session) {
     return NextResponse.redirect(new URL("/admin", request.url), 303);
   }
 
@@ -47,7 +48,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const adminProfile = await getRuntimeProfile("tiago", true);
+    // O profileId vem do formulário: só vale se for o perfil deste administrador.
+    const adminProfile = await getOwnedProfile(session.userId);
     if (!adminProfile || adminProfile.id !== parsed.data.profileId) {
       return new Response("Perfil não autorizado.", { status: 403 });
     }
@@ -57,7 +59,7 @@ export async function POST(request: NextRequest) {
       await updateRuntimeCard(cardId, parsed.data);
       revalidatePath("/admin/cards");
       revalidatePath(`/admin/cards/${cardId}`);
-      revalidatePath("/t/tiago");
+      revalidatePath(`/t/${adminProfile.slug}`);
       return NextResponse.redirect(
         new URL(`/admin/cards/${cardId}?saved=1`, request.url),
         303,

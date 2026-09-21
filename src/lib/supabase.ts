@@ -1,9 +1,12 @@
-import type { Card, EventType, Profile } from "@/types/profile";
-import {
-  getCardByCode,
-  getProfileBySlug,
-  profiles,
-} from "@/data/profiles";
+import type {
+  Card,
+  EventType,
+  Lead,
+  Profile,
+  ProfileService,
+} from "@/types/profile";
+import { MAX_SERVICES } from "@/types/profile";
+import { getCardByCode, getProfileBySlug } from "@/data/profiles";
 
 type SupabaseProfileRow = {
   id: string;
@@ -23,7 +26,28 @@ type SupabaseProfileRow = {
   website: string | null;
   linkedin_url: string | null;
   instagram_url: string | null;
+  services: unknown;
+  owner_id: string | null;
+  leads_enabled: boolean;
   is_active: boolean;
+};
+
+type SupabaseLeadRow = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  message: string | null;
+  card_code: string | null;
+  device_type: string | null;
+  utm_source: string | null;
+  created_at: string;
+};
+
+type SupabaseAdminUserRow = {
+  id: string;
+  email: string;
+  password_hash: string;
 };
 
 type SupabaseCardRow = {
@@ -90,6 +114,7 @@ const actionLabels: Partial<Record<EventType, string>> = {
   calendar_click: "Agendamento",
   website_click: "Site",
   social_click: "Rede social",
+  lead_submit: "Contato deixado",
 };
 
 function getSupabaseConfig() {
@@ -141,8 +166,24 @@ async function supabaseRequest<T>(
   return (await response.json()) as T;
 }
 
+/** Exportada para teste: o jsonb do banco não tem garantia de formato. */
+export function mapServices(value: unknown): ProfileService[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter(
+      (item): item is Record<string, unknown> =>
+        typeof item === "object" && item !== null,
+    )
+    .map((item) => ({
+      title: typeof item.title === "string" ? item.title : "",
+      detail: typeof item.detail === "string" ? item.detail : "",
+    }))
+    .filter((service) => service.title)
+    .slice(0, MAX_SERVICES);
+}
+
 function mapProfile(row: SupabaseProfileRow): Profile {
-  const fallback = getProfileBySlug(row.slug) ?? profiles[0];
   const initials = row.name
     .split(/\s+/)
     .filter(Boolean)
@@ -160,7 +201,7 @@ function mapProfile(row: SupabaseProfileRow): Profile {
     company: row.company ?? "",
     headline: row.headline ?? "",
     bio: row.bio ?? "",
-    logoUrl: row.avatar_url || fallback.logoUrl,
+    logoUrl: row.avatar_url ?? "",
     email: row.email ?? "",
     phone: row.phone ?? "",
     website: row.website ?? "",
@@ -171,7 +212,22 @@ function mapProfile(row: SupabaseProfileRow): Profile {
     presentationUrl: row.presentation_url ?? "",
     calendarUrl: row.calendar_url ?? "",
     isActive: row.is_active,
-    services: fallback.services,
+    leadsEnabled: row.leads_enabled ?? true,
+    services: mapServices(row.services),
+  };
+}
+
+function mapLead(row: SupabaseLeadRow): Lead {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email ?? "",
+    phone: row.phone ?? "",
+    message: row.message ?? "",
+    cardCode: row.card_code ?? "",
+    deviceType: row.device_type ?? "",
+    utmSource: row.utm_source ?? "",
+    createdAt: row.created_at,
   };
 }
 
@@ -187,159 +243,179 @@ function mapCard(row: SupabaseCardRow): Card {
   };
 }
 
+// Os dados de `src/data/profiles.ts` são semente de desenvolvimento e podem
+// estar desatualizados. Usá-los como fallback quando o Supabase está
+// configurado mas indisponível serviria um perfil possivelmente já desativado
+// no banco — então nesse caso o erro sobe e a página falha fechada.
 export async function getRuntimeProfile(slug: string, fresh = false) {
-  try {
-    const rows = await supabaseRequest<SupabaseProfileRow[]>(
-      `profiles?select=*&slug=eq.${encodeURIComponent(slug)}&limit=1`,
-      fresh ? { cache: "no-store" } : { next: { revalidate: 30 } },
-    );
-    return rows[0] ? mapProfile(rows[0]) : undefined;
-  } catch (error) {
-    console.error("[profile] Falling back to local data", error);
-    return getProfileBySlug(slug);
-  }
+  if (!getSupabaseConfig()) return getProfileBySlug(slug);
+
+  const rows = await supabaseRequest<SupabaseProfileRow[]>(
+    `profiles?select=*&slug=eq.${encodeURIComponent(slug)}&limit=1`,
+    fresh ? { cache: "no-store" } : { next: { revalidate: 30 } },
+  );
+  return rows[0] ? mapProfile(rows[0]) : undefined;
+}
+
+export async function getAdminUserByEmail(email: string) {
+  const rows = await supabaseRequest<SupabaseAdminUserRow[]>(
+    `admin_users?select=id,email,password_hash&email=eq.${encodeURIComponent(
+      email.trim().toLowerCase(),
+    )}&limit=1`,
+  );
+  return rows[0];
+}
+
+/** Usado só para diferenciar "senha errada" de "nenhum admin cadastrado". */
+export async function hasAnyAdminUser() {
+  const rows = await supabaseRequest<Array<{ id: string }>>(
+    "admin_users?select=id&limit=1",
+  );
+  return rows.length > 0;
+}
+
+/**
+ * O perfil que o administrador logado administra. Toda leitura e escrita do
+ * painel parte daqui — nenhuma rota deve resolver perfil por slug fixo.
+ */
+export async function getOwnedProfile(ownerId: string) {
+  const rows = await supabaseRequest<SupabaseProfileRow[]>(
+    `profiles?select=*&owner_id=eq.${encodeURIComponent(
+      ownerId,
+    )}&order=created_at.asc&limit=1`,
+  );
+  return rows[0] ? mapProfile(rows[0]) : undefined;
 }
 
 export async function getRuntimeCard(code?: string, fresh = false) {
   if (!code) return undefined;
+  if (!getSupabaseConfig()) return getCardByCode(code);
 
-  try {
-    const rows = await supabaseRequest<SupabaseCardRow[]>(
-      `cards?select=*&card_code=eq.${encodeURIComponent(code)}&limit=1`,
-      fresh ? { cache: "no-store" } : { next: { revalidate: 30 } },
-    );
-    return rows[0] ? mapCard(rows[0]) : undefined;
-  } catch (error) {
-    console.error("[card] Falling back to local data", error);
-    return getCardByCode(code);
-  }
+  const rows = await supabaseRequest<SupabaseCardRow[]>(
+    `cards?select=*&card_code=eq.${encodeURIComponent(code)}&limit=1`,
+    fresh ? { cache: "no-store" } : { next: { revalidate: 30 } },
+  );
+  return rows[0] ? mapCard(rows[0]) : undefined;
 }
 
-function buildDailyViews(events: DashboardEvent[]) {
-  const timeZone = "America/Sao_Paulo";
-  const labelFormatter = new Intl.DateTimeFormat("pt-BR", {
+/** Retorno de `public.onetap_dashboard_stats`, contado no Postgres. */
+type DashboardStatsRow = {
+  totalViews: number;
+  viewsLast7Days: number;
+  viewsLast30Days: number;
+  actionCount: number;
+  actionCounts: Partial<Record<EventType, number>>;
+  dailyViews: Array<{ date: string; count: number }>;
+  topCard: { code: string; count: number } | null;
+  recentEvents: DashboardEvent[];
+};
+
+function callRpc<T>(name: string, args: Record<string, unknown>) {
+  return supabaseRequest<T>(`rpc/${name}`, {
+    method: "POST",
+    body: JSON.stringify(args),
+  });
+}
+
+// `dateKey` já é uma data-calendário de São Paulo vinda do banco. Formatar em
+// UTC evita que o fuso a empurre para o dia anterior.
+function formatDayLabel(dateKey: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
     weekday: "short",
-    timeZone,
-  });
-  const keyFormatter = new Intl.DateTimeFormat("en-CA", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    timeZone,
-  });
-
-  return Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(Date.now() - (6 - index) * 24 * 60 * 60 * 1000);
-    const dateKey = keyFormatter.format(date);
-
-    return {
-      date: dateKey,
-      label: labelFormatter.format(date).replace(".", ""),
-      count: events.filter(
-        (event) =>
-          event.event_type === "page_view" &&
-          keyFormatter.format(new Date(event.created_at)) === dateKey,
-      ).length,
-    };
-  });
+    timeZone: "UTC",
+  })
+    .format(new Date(`${dateKey}T00:00:00Z`))
+    .replace(".", "");
 }
 
 export async function getDashboardData(
-  slug = "tiago",
-): Promise<DashboardData> {
-  const profile = await getRuntimeProfile(slug, true);
-  if (!profile) throw new Error("Perfil administrativo não encontrado.");
+  ownerId: string,
+): Promise<DashboardData | undefined> {
+  const profile = await getOwnedProfile(ownerId);
+  if (!profile) return undefined;
 
-  const [events, cardRows] = await Promise.all([
-    supabaseRequest<DashboardEvent[]>(
-      `events?select=id,event_type,card_code,device_type,utm_source,utm_medium,utm_campaign,created_at&profile_id=eq.${profile.id}&order=created_at.desc&limit=2000`,
-    ),
+  const [stats, cardRows] = await Promise.all([
+    callRpc<DashboardStatsRow>("onetap_dashboard_stats", {
+      p_profile_id: profile.id,
+    }),
     supabaseRequest<SupabaseCardRow[]>(
       `cards?select=*&profile_id=eq.${profile.id}&order=created_at.asc`,
     ),
   ]);
 
-  const now = new Date();
-  const sevenDaysAgo = new Date(now);
-  sevenDaysAgo.setDate(now.getDate() - 7);
-  const thirtyDaysAgo = new Date(now);
-  thirtyDaysAgo.setDate(now.getDate() - 30);
-
-  const views = events.filter((event) => event.event_type === "page_view");
-  const actions = events.filter((event) => event.event_type !== "page_view");
   const actionMetrics = Object.entries(actionLabels)
     .map(([eventType, label]) => {
-      const count = events.filter(
-        (event) => event.event_type === eventType,
-      ).length;
+      const count = stats.actionCounts[eventType as EventType] ?? 0;
       return {
         eventType: eventType as EventType,
         label,
         count,
-        rate: views.length ? (count / views.length) * 100 : 0,
+        rate: stats.totalViews ? (count / stats.totalViews) * 100 : 0,
       };
     })
     .filter((metric) => metric.count > 0 || metric.eventType !== "social_click");
 
-  const viewsByCard = views.reduce<Record<string, number>>((accumulator, event) => {
-    const code = event.card_code || "acesso-direto";
-    accumulator[code] = (accumulator[code] ?? 0) + 1;
-    return accumulator;
-  }, {});
-  const topCardEntry = Object.entries(viewsByCard).sort((a, b) => b[1] - a[1])[0];
   const cards = cardRows.map(mapCard);
-  const topCard = topCardEntry
+  const topCard = stats.topCard
     ? {
-        code: topCardEntry[0],
+        code: stats.topCard.code,
         label:
-          cards.find((card) => card.code === topCardEntry[0])?.label ??
-          (topCardEntry[0] === "acesso-direto"
+          cards.find((card) => card.code === stats.topCard!.code)?.label ??
+          (stats.topCard.code === "acesso-direto"
             ? "Acesso direto"
-            : topCardEntry[0]),
-        count: topCardEntry[1],
+            : stats.topCard.code),
+        count: stats.topCard.count,
       }
     : null;
 
   return {
     profile,
-    totalViews: views.length,
-    viewsLast7Days: views.filter(
-      (event) => new Date(event.created_at) >= sevenDaysAgo,
-    ).length,
-    viewsLast30Days: views.filter(
-      (event) => new Date(event.created_at) >= thirtyDaysAgo,
-    ).length,
-    actionCount: actions.length,
-    overallConversion: views.length ? (actions.length / views.length) * 100 : 0,
+    totalViews: stats.totalViews,
+    viewsLast7Days: stats.viewsLast7Days,
+    viewsLast30Days: stats.viewsLast30Days,
+    actionCount: stats.actionCount,
+    overallConversion: stats.totalViews
+      ? (stats.actionCount / stats.totalViews) * 100
+      : 0,
     actionMetrics,
-    dailyViews: buildDailyViews(events),
-    recentEvents: events.slice(0, 12),
+    dailyViews: stats.dailyViews.map((day) => ({
+      ...day,
+      label: formatDayLabel(day.date),
+    })),
+    recentEvents: stats.recentEvents,
     topCard,
     cards,
   };
 }
 
-export async function getCardManagementData(slug = "tiago") {
-  const profile = await getRuntimeProfile(slug, true);
-  if (!profile) throw new Error("Perfil administrativo não encontrado.");
+export async function getCardManagementData(ownerId: string) {
+  const profile = await getOwnedProfile(ownerId);
+  if (!profile) return undefined;
 
-  const [cardRows, events] = await Promise.all([
+  const [cardRows, cardStats] = await Promise.all([
     supabaseRequest<SupabaseCardRow[]>(
       `cards?select=*&profile_id=eq.${profile.id}&order=created_at.asc`,
     ),
-    supabaseRequest<Array<{ card_code: string | null; event_type: EventType }>>(
-      `events?select=card_code,event_type&profile_id=eq.${profile.id}&limit=10000`,
+    callRpc<Array<{ code: string | null; views: number; actions: number }>>(
+      "onetap_card_stats",
+      { p_profile_id: profile.id },
     ),
   ]);
 
+  const statsByCode = new Map(
+    cardStats
+      .filter((stat) => stat.code)
+      .map((stat) => [stat.code as string, stat]),
+  );
+
   const cards: CardInsight[] = cardRows.map((row) => {
     const card = mapCard(row);
-    const cardEvents = events.filter((event) => event.card_code === card.code);
+    const stat = statsByCode.get(card.code);
 
     return {
       ...card,
-      views: cardEvents.filter((event) => event.event_type === "page_view").length,
-      actions: cardEvents.filter((event) => event.event_type !== "page_view").length,
+      views: stat?.views ?? 0,
+      actions: stat?.actions ?? 0,
       createdAt: row.created_at ?? new Date().toISOString(),
     };
   });
@@ -356,9 +432,12 @@ export type CardInput = {
   isActive: boolean;
 };
 
-export async function getAdminCard(cardId: string) {
+/** Só devolve o cartão se ele pertencer ao perfil informado. */
+export async function getAdminCard(cardId: string, profileId: string) {
   const rows = await supabaseRequest<SupabaseCardRow[]>(
-    `cards?select=*&id=eq.${encodeURIComponent(cardId)}&limit=1`,
+    `cards?select=*&id=eq.${encodeURIComponent(
+      cardId,
+    )}&profile_id=eq.${encodeURIComponent(profileId)}&limit=1`,
   );
   return rows[0] ? mapCard(rows[0]) : undefined;
 }
@@ -417,15 +496,20 @@ export type ProfileUpdate = {
   website: string;
   linkedinUrl: string;
   instagramUrl: string;
+  services: ProfileService[];
+  leadsEnabled: boolean;
   isActive: boolean;
 };
 
 export async function updateRuntimeProfile(
   profileId: string,
+  ownerId: string,
   input: ProfileUpdate,
 ) {
   const rows = await supabaseRequest<SupabaseProfileRow[]>(
-    `profiles?id=eq.${encodeURIComponent(profileId)}`,
+    `profiles?id=eq.${encodeURIComponent(
+      profileId,
+    )}&owner_id=eq.${encodeURIComponent(ownerId)}`,
     {
       method: "PATCH",
       prefer: "return=representation",
@@ -445,6 +529,8 @@ export async function updateRuntimeProfile(
         website: input.website || null,
         linkedin_url: input.linkedinUrl || null,
         instagram_url: input.instagramUrl || null,
+        services: input.services,
+        leads_enabled: input.leadsEnabled,
         is_active: input.isActive,
         updated_at: new Date().toISOString(),
       }),
@@ -453,4 +539,167 @@ export async function updateRuntimeProfile(
 
   if (!rows[0]) throw new Error("O perfil não foi atualizado.");
   return mapProfile(rows[0]);
+}
+
+/**
+ * Incrementa e avalia o limite numa única ida ao banco. Em serverless o
+ * contador precisa ser compartilhado — memória de instância não serve.
+ * Falha aberta: indisponibilidade do banco não pode derrubar o tráfego.
+ */
+export async function consumeRateLimit(
+  key: string,
+  limit: number,
+  windowSeconds: number,
+) {
+  try {
+    return await callRpc<boolean>("onetap_rate_limit", {
+      p_key: key,
+      p_limit: limit,
+      p_window_seconds: windowSeconds,
+    });
+  } catch (error) {
+    console.error("[rate-limit] Falha ao consultar o limite", error);
+    return true;
+  }
+}
+
+export type LeadInput = {
+  profileId: string;
+  cardCode?: string | null;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  message?: string | null;
+  deviceType?: string | null;
+  referrer?: string | null;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  utmCampaign?: string | null;
+};
+
+export async function createLead(input: LeadInput) {
+  await supabaseRequest("leads", {
+    method: "POST",
+    prefer: "return=minimal",
+    body: JSON.stringify({
+      profile_id: input.profileId,
+      card_code: input.cardCode || null,
+      name: input.name,
+      email: input.email || null,
+      phone: input.phone || null,
+      message: input.message || null,
+      device_type: input.deviceType || null,
+      referrer: input.referrer || null,
+      utm_source: input.utmSource || null,
+      utm_medium: input.utmMedium || null,
+      utm_campaign: input.utmCampaign || null,
+    }),
+  });
+}
+
+/** Teto por perfil, para limitar abuso do endpoint público. */
+export async function countRecentLeads(profileId: string, since: Date) {
+  const rows = await supabaseRequest<Array<{ id: string }>>(
+    `leads?select=id&profile_id=eq.${encodeURIComponent(
+      profileId,
+    )}&created_at=gte.${since.toISOString()}&limit=200`,
+  );
+  return rows.length;
+}
+
+/** Evita duplicar o mesmo contato quando a pessoa reenvia o formulário. */
+export async function hasRecentLeadFrom(
+  profileId: string,
+  email: string,
+  since: Date,
+) {
+  const rows = await supabaseRequest<Array<{ id: string }>>(
+    `leads?select=id&profile_id=eq.${encodeURIComponent(
+      profileId,
+    )}&email=eq.${encodeURIComponent(
+      email,
+    )}&created_at=gte.${since.toISOString()}&limit=1`,
+  );
+  return rows.length > 0;
+}
+
+export async function getLeads(ownerId: string) {
+  const profile = await getOwnedProfile(ownerId);
+  if (!profile) return undefined;
+
+  const rows = await supabaseRequest<SupabaseLeadRow[]>(
+    `leads?select=id,name,email,phone,message,card_code,device_type,utm_source,created_at&profile_id=eq.${profile.id}&order=created_at.desc&limit=200`,
+  );
+
+  return { profile, leads: rows.map(mapLead) };
+}
+
+export type EventInput = {
+  profileId: string;
+  eventType: EventType;
+  cardCode?: string | null;
+  sessionId?: string | null;
+  referrer?: string | null;
+  userAgent?: string | null;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  utmCampaign?: string | null;
+};
+
+export type EventResult = {
+  persisted: boolean;
+  reason?: "not_configured" | "upstream_rejected" | "request_failed";
+  upstreamStatus?: number;
+};
+
+export function detectDevice(userAgent: string) {
+  if (/tablet|ipad/i.test(userAgent)) return "tablet";
+  if (/mobile|iphone|android/i.test(userAgent)) return "mobile";
+  return "desktop";
+}
+
+/** Grava um evento. Nunca lança — o rastreio não pode derrubar a resposta. */
+export async function recordEvent(input: EventInput): Promise<EventResult> {
+  const config = getSupabaseConfig();
+  if (!config) return { persisted: false, reason: "not_configured" };
+
+  const userAgent = input.userAgent ?? "";
+  const payload = {
+    profile_id: input.profileId,
+    card_code: input.cardCode ?? null,
+    session_id: input.sessionId ?? null,
+    event_type: input.eventType,
+    referrer: input.referrer ?? null,
+    user_agent: userAgent,
+    device_type: detectDevice(userAgent),
+    utm_source: input.utmSource ?? null,
+    utm_medium: input.utmMedium ?? null,
+    utm_campaign: input.utmCampaign ?? null,
+  };
+
+  try {
+    const response = await fetch(`${config.url}/rest/v1/events`, {
+      method: "POST",
+      headers: getSupabaseHeaders(config.key, "return=minimal"),
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      console.error("[analytics] Supabase insert failed", {
+        status: response.status,
+        message: (await response.text()).slice(0, 500),
+      });
+      return {
+        persisted: false,
+        reason: "upstream_rejected",
+        upstreamStatus: response.status,
+      };
+    }
+
+    return { persisted: true };
+  } catch (error) {
+    console.error("[analytics] Supabase request failed", error);
+    return { persisted: false, reason: "request_failed" };
+  }
 }

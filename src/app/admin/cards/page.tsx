@@ -3,7 +3,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { CopyCardUrl } from "@/components/admin/CopyCardUrl";
-import { hasAdminSession } from "@/lib/admin-auth";
+import { NoProfileState } from "@/components/admin/NoProfileState";
+import { getAdminSession } from "@/lib/admin-auth";
+import { getSiteUrl } from "@/lib/site";
 import { getCardManagementData } from "@/lib/supabase";
 
 type AdminCardsPageProps = {
@@ -12,13 +14,6 @@ type AdminCardsPageProps = {
     error?: string;
   }>;
 };
-
-function getSiteUrl() {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
-    "https://onetap-sand.vercel.app"
-  );
-}
 
 function formatCreatedAt(value: string) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -33,13 +28,17 @@ function formatCreatedAt(value: string) {
 export default async function AdminCardsPage({
   searchParams,
 }: AdminCardsPageProps) {
-  if (!(await hasAdminSession())) redirect("/admin");
+  const session = await getAdminSession();
+  if (!session) redirect("/admin");
 
-  const [{ profile, cards }, query] = await Promise.all([
-    getCardManagementData(),
+  const [data, query, siteUrl] = await Promise.all([
+    getCardManagementData(session.userId),
     searchParams,
+    getSiteUrl(),
   ]);
-  const siteUrl = getSiteUrl();
+  if (!data) return <NoProfileState active="cards" email={session.email} />;
+
+  const { profile, cards } = data;
 
   return (
     <AdminShell active="cards" profileName={profile.name}>

@@ -1,30 +1,32 @@
 import { NextRequest } from "next/server";
 import QRCode from "qrcode";
-import { hasAdminSession } from "@/lib/admin-auth";
-import { getAdminCard, getRuntimeProfile } from "@/lib/supabase";
+import { getAdminSession } from "@/lib/admin-auth";
+import { getSiteUrl } from "@/lib/site";
+import { getAdminCard, getOwnedProfile } from "@/lib/supabase";
 
 type QrRouteContext = {
   params: Promise<{ id: string }>;
 };
 
 export async function GET(request: NextRequest, { params }: QrRouteContext) {
-  if (!(await hasAdminSession())) {
+  const session = await getAdminSession();
+  if (!session) {
     return new Response("Não autorizado.", { status: 401 });
   }
 
-  const { id } = await params;
-  const [card, profile] = await Promise.all([
-    getAdminCard(id),
-    getRuntimeProfile("tiago", true),
+  const [{ id }, profile] = await Promise.all([
+    params,
+    getOwnedProfile(session.userId),
   ]);
 
-  if (!card || !profile || card.profileId !== profile.id) {
+  // getAdminCard filtra por profile_id, então um cartão de outro dono
+  // simplesmente não é encontrado.
+  const card = profile ? await getAdminCard(id, profile.id) : undefined;
+  if (!profile || !card) {
     return new Response("Cartão não encontrado.", { status: 404 });
   }
 
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
-    request.nextUrl.origin;
+  const siteUrl = await getSiteUrl();
   const cardUrl = `${siteUrl}/t/${profile.slug}?card=${encodeURIComponent(card.code)}`;
   const svg = await QRCode.toString(cardUrl, {
     type: "svg",

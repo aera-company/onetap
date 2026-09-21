@@ -1,7 +1,10 @@
+import { Fragment } from "react";
 import { redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin/AdminShell";
-import { hasAdminSession } from "@/lib/admin-auth";
-import { getRuntimeProfile } from "@/lib/supabase";
+import { NoProfileState } from "@/components/admin/NoProfileState";
+import { getAdminSession } from "@/lib/admin-auth";
+import { getOwnedProfile } from "@/lib/supabase";
+import { MAX_SERVICES } from "@/types/profile";
 
 type AdminProfilePageProps = {
   searchParams: Promise<{ saved?: string; error?: string }>;
@@ -10,10 +13,12 @@ type AdminProfilePageProps = {
 export default async function AdminProfilePage({
   searchParams,
 }: AdminProfilePageProps) {
-  if (!(await hasAdminSession())) redirect("/admin");
+  const session = await getAdminSession();
+  if (!session) redirect("/admin");
 
-  const profile = await getRuntimeProfile("tiago", true);
-  if (!profile) throw new Error("Perfil não encontrado.");
+  const profile = await getOwnedProfile(session.userId);
+  if (!profile) return <NoProfileState active="profile" email={session.email} />;
+
   const { saved, error } = await searchParams;
 
   return (
@@ -26,7 +31,7 @@ export default async function AdminProfilePage({
         </div>
         <a
           className="admin-button admin-button--secondary"
-          href={`/t/${profile.slug}?card=aera-tiago-001`}
+          href={`/t/${profile.slug}`}
           target="_blank"
           rel="noreferrer"
         >
@@ -140,6 +145,48 @@ export default async function AdminProfilePage({
           <div className="admin-form-section__intro">
             <span>03</span>
             <div>
+              <h2>Competências</h2>
+              <p>
+                Até {MAX_SERVICES} blocos. Deixe o título em branco para remover
+                o bloco do perfil público.
+              </p>
+            </div>
+          </div>
+          <div className="admin-form-grid">
+            {Array.from({ length: MAX_SERVICES }, (_, index) => {
+              const service = profile.services[index];
+
+              // Cada serviço ocupa uma linha do grid de 2 colunas do pai.
+              return (
+                <Fragment key={index}>
+                  <label className="admin-field">
+                    <span>Título {index + 1}</span>
+                    <input
+                      name={`serviceTitle${index}`}
+                      defaultValue={service?.title ?? ""}
+                      maxLength={80}
+                      placeholder="Ex.: Estratégia"
+                    />
+                  </label>
+                  <label className="admin-field">
+                    <span>Descrição {index + 1}</span>
+                    <input
+                      name={`serviceDetail${index}`}
+                      defaultValue={service?.detail ?? ""}
+                      maxLength={160}
+                      placeholder="Uma linha sobre a competência"
+                    />
+                  </label>
+                </Fragment>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="admin-form-section">
+          <div className="admin-form-section__intro">
+            <span>04</span>
+            <div>
               <h2>Contato e presença</h2>
               <p>Dados usados no contato salvo e nos links complementares.</p>
             </div>
@@ -185,7 +232,7 @@ export default async function AdminProfilePage({
 
         <section className="admin-form-section admin-form-section--status">
           <div className="admin-form-section__intro">
-            <span>04</span>
+            <span>05</span>
             <div>
               <h2>Publicação</h2>
               <p>Controle se o perfil pode ser acessado pelo cartão.</p>
@@ -201,6 +248,21 @@ export default async function AdminProfilePage({
             <div>
               <strong>Perfil ativo</strong>
               <small>Disponível para NFC, QR Code e link direto.</small>
+            </div>
+          </label>
+
+          <label className="admin-switch">
+            <input
+              name="leadsEnabled"
+              type="checkbox"
+              defaultChecked={profile.leadsEnabled}
+            />
+            <span aria-hidden="true" />
+            <div>
+              <strong>Receber contatos</strong>
+              <small>
+                Mostra o formulário de troca de contato no perfil público.
+              </small>
             </div>
           </label>
         </section>

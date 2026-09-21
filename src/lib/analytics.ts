@@ -1,7 +1,9 @@
 import type { EventType } from "@/types/profile";
 
+// O identificador do perfil não trafega pelo cliente: o servidor resolve o
+// slug, o que impede atribuir eventos a um perfil arbitrário.
 type TrackEventInput = {
-  profileId: string;
+  slug: string;
   cardCode?: string;
   eventType: EventType;
 };
@@ -46,7 +48,7 @@ export function trackEvent(input: TrackEventInput) {
 }
 
 export function trackPageView(input: Omit<TrackEventInput, "eventType">) {
-  const key = `${PAGE_VIEW_KEY}:${input.profileId}:${input.cardCode ?? "direct"}`;
+  const key = `${PAGE_VIEW_KEY}:${input.slug}:${input.cardCode ?? "direct"}`;
   if (window.sessionStorage.getItem(key)) return;
 
   window.sessionStorage.setItem(key, "1");

@@ -1,3 +1,11 @@
+export type ProfileService = {
+  title: string;
+  detail: string;
+};
+
+/** Número de serviços editáveis no painel. */
+export const MAX_SERVICES = 4;
+
 export type Profile = {
   id: string;
   slug: string;
@@ -18,10 +26,20 @@ export type Profile = {
   presentationUrl: string;
   calendarUrl: string;
   isActive: boolean;
-  services: Array<{
-    title: string;
-    detail: string;
-  }>;
+  leadsEnabled: boolean;
+  services: ProfileService[];
+};
+
+export type Lead = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  message: string;
+  cardCode: string;
+  deviceType: string;
+  utmSource: string;
+  createdAt: string;
 };
 
 export type Card = {
@@ -41,4 +59,5 @@ export type EventType =
   | "contact_download"
   | "calendar_click"
   | "website_click"
-  | "social_click";
+  | "social_click"
+  | "lead_submit";

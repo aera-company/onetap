@@ -12,6 +12,7 @@ insert into public.profiles (
   whatsapp_message,
   email,
   linkedin_url,
+  services,
   is_active
 )
 values (
@@ -28,6 +29,11 @@ values (
   'Olá, bem vindo ao teste onetap',
   'eutiagolima30@gmail.com',
   'https://www.linkedin.com/in/tiago-lima-b2a56a1a0/',
+  '[
+    {"title": "Estratégia", "detail": "Clareza para marcas, produtos e novas ideias."},
+    {"title": "Branding", "detail": "Sistemas visuais que constroem presença."},
+    {"title": "Marketing & Engineering Designer", "detail": "Criatividade, tecnologia e execução conectadas."}
+  ]'::jsonb,
   true
 )
 on conflict (slug) do update set
@@ -42,6 +48,7 @@ on conflict (slug) do update set
   whatsapp_message = excluded.whatsapp_message,
   email = excluded.email,
   linkedin_url = excluded.linkedin_url,
+  services = excluded.services,
   is_active = excluded.is_active,
   updated_at = now();
 

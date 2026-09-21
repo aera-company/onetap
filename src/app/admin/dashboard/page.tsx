@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin/AdminShell";
-import { hasAdminSession } from "@/lib/admin-auth";
+import { NoProfileState } from "@/components/admin/NoProfileState";
+import { getAdminSession } from "@/lib/admin-auth";
 import {
   type DashboardEvent,
   getDashboardData,
@@ -15,6 +16,7 @@ const eventLabels: Record<DashboardEvent["event_type"], string> = {
   calendar_click: "Agendamento iniciado",
   website_click: "Site acessado",
   social_click: "Rede social acessada",
+  lead_submit: "Contato deixado",
 };
 
 function formatDate(value: string) {
@@ -36,10 +38,14 @@ function formatPercent(value: number) {
 }
 
 export default async function AdminDashboardPage() {
-  if (!(await hasAdminSession())) redirect("/admin");
+  const session = await getAdminSession();
+  if (!session) redirect("/admin");
 
-  const data = await getDashboardData();
+  const data = await getDashboardData(session.userId);
+  if (!data) return <NoProfileState active="dashboard" email={session.email} />;
+
   const maxDailyViews = Math.max(...data.dailyViews.map((day) => day.count), 1);
+  const previewCard = data.cards.find((card) => card.isActive);
 
   return (
     <AdminShell active="dashboard" profileName={data.profile.name}>
@@ -51,7 +57,9 @@ export default async function AdminDashboardPage() {
         </div>
         <Link
           className="admin-button admin-button--secondary"
-          href={`/t/${data.profile.slug}?card=aera-tiago-001`}
+          href={`/t/${data.profile.slug}${
+            previewCard ? `?card=${encodeURIComponent(previewCard.code)}` : ""
+          }`}
           target="_blank"
         >
           Ver perfil público <span aria-hidden="true">↗</span>

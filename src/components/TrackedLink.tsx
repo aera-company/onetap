@@ -9,7 +9,7 @@ type TrackedLinkProps = {
   children: ReactNode;
   className?: string;
   eventType: EventType;
-  profileId: string;
+  slug: string;
   cardCode?: string;
   external?: boolean;
 };
@@ -19,7 +19,7 @@ export function TrackedLink({
   children,
   className,
   eventType,
-  profileId,
+  slug,
   cardCode,
   external,
 }: TrackedLinkProps) {
@@ -27,7 +27,7 @@ export function TrackedLink({
     <a
       href={href}
       className={className}
-      onClick={() => trackEvent({ profileId, cardCode, eventType })}
+      onClick={() => trackEvent({ slug, cardCode, eventType })}
       target={external ? "_blank" : undefined}
       rel={external ? "noreferrer" : undefined}
     >

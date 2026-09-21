@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { allowRequest, isSameOrigin } from "@/lib/rate-limit";
+import { getRuntimeCard, getRuntimeProfile, recordEvent } from "@/lib/supabase";
 
+/** Uma visita real gera poucos eventos; 60/min por IP é folgado e mata script. */
+const LIMIT = 60;
+const WINDOW_SECONDS = 60;
+
+// `lead_submit` fica de fora de propósito: é gravado pelo servidor quando um
+// lead entra. Aceitá-lo aqui deixaria inflar a métrica sem deixar contato.
 const eventSchema = z.object({
-  profileId: z.string().uuid(),
-  cardCode: z.string().max(120).optional(),
+  slug: z.string().trim().min(1).max(120),
+  cardCode: z.string().trim().max(120).optional(),
   sessionId: z.string().uuid(),
   eventType: z.enum([
     "page_view",
@@ -21,84 +29,51 @@ const eventSchema = z.object({
   utmCampaign: z.string().max(200).nullable().optional(),
 });
 
-function detectDevice(userAgent: string) {
-  if (/tablet|ipad/i.test(userAgent)) return "tablet";
-  if (/mobile|iphone|android/i.test(userAgent)) return "mobile";
-  return "desktop";
-}
-
 export async function POST(request: NextRequest) {
-  const parsed = eventSchema.safeParse(await request.json().catch(() => null));
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ accepted: false }, { status: 403 });
+  }
 
+  const parsed = eventSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ accepted: false }, { status: 400 });
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey =
-    process.env.SUPABASE_SECRET_KEY ??
-    process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    return NextResponse.json({
-      accepted: true,
-      persisted: false,
-      reason: "not_configured",
-      configured: {
-        url: Boolean(supabaseUrl),
-        key: Boolean(supabaseKey),
-      },
-    });
+  if (!(await allowRequest(request, "events", LIMIT, WINDOW_SECONDS))) {
+    return NextResponse.json({ accepted: false }, { status: 429 });
   }
 
-  const userAgent = request.headers.get("user-agent") ?? "";
-  const forwardedFor = request.headers.get("x-forwarded-for");
-  const payload = {
-    profile_id: parsed.data.profileId,
-    card_code: parsed.data.cardCode ?? null,
-    session_id: parsed.data.sessionId,
-    event_type: parsed.data.eventType,
-    referrer: parsed.data.referrer ?? null,
-    user_agent: userAgent,
-    device_type: detectDevice(userAgent),
-    utm_source: parsed.data.utmSource ?? null,
-    utm_medium: parsed.data.utmMedium ?? null,
-    utm_campaign: parsed.data.utmCampaign ?? null,
-    ip_hash_source: forwardedFor ? "available_at_edge" : null,
-  };
+  try {
+    // O perfil é resolvido no servidor a partir do slug. Antes o cliente
+    // mandava o profileId, o que permitia atribuir eventos a qualquer perfil.
+    const profile = await getRuntimeProfile(parsed.data.slug);
+    if (!profile || !profile.isActive) {
+      return NextResponse.json({ accepted: false }, { status: 404 });
+    }
 
-  const headers: Record<string, string> = {
-    apikey: supabaseKey,
-    "Content-Type": "application/json",
-    Prefer: "return=minimal",
-  };
+    // Um cartão de outro perfil (ou pausado) não atribui origem: o evento entra
+    // como acesso direto em vez de creditar o cartão errado.
+    const card = await getRuntimeCard(parsed.data.cardCode);
+    const cardCode =
+      card && card.isActive && card.profileId === profile.id ? card.code : null;
 
-  // Legacy service-role keys are JWTs and require Authorization.
-  // New sb_secret_ keys must only use the apikey header.
-  if (!supabaseKey.startsWith("sb_secret_")) {
-    headers.Authorization = `Bearer ${supabaseKey}`;
-  }
-
-  const response = await fetch(`${supabaseUrl}/rest/v1/events`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const errorMessage = (await response.text()).slice(0, 500);
-    console.error("[analytics] Supabase insert failed", {
-      status: response.status,
-      message: errorMessage,
+    const result = await recordEvent({
+      profileId: profile.id,
+      cardCode,
+      sessionId: parsed.data.sessionId,
+      eventType: parsed.data.eventType,
+      referrer: parsed.data.referrer ?? null,
+      userAgent: request.headers.get("user-agent"),
+      utmSource: parsed.data.utmSource ?? null,
+      utmMedium: parsed.data.utmMedium ?? null,
+      utmCampaign: parsed.data.utmCampaign ?? null,
     });
 
-    return NextResponse.json({
-      accepted: true,
-      persisted: false,
-      reason: "upstream_rejected",
-      upstreamStatus: response.status,
-    });
+    return NextResponse.json({ accepted: true, ...result });
+  } catch (error) {
+    // Rastreio nunca derruba a navegação: o beacon do cliente ignora a resposta
+    // e um banco indisponível não deve virar 500 a cada evento.
+    console.error("[analytics] Falha ao resolver o evento", error);
+    return NextResponse.json({ accepted: true, persisted: false });
   }
-
-  return NextResponse.json({ accepted: true, persisted: true });
 }

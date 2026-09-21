@@ -8,20 +8,22 @@ export const profiles: Profile[] = [
     initials: "TL",
     role: "CEO",
     company: "AERA",
-    headline: "Ainda em teste",
-    bio: "AERA é uma empresa especializada em…",
+    headline:
+      "Strategy, creative, technology and AI. From first thought to first version running.",
+    bio: "Na AERA, conecto estratégia, criatividade e tecnologia para transformar ideias em marcas, produtos e sistemas prontos para ganhar movimento.",
     logoUrl: "/brand/aera-symbol.png",
     email: "eutiagolima30@gmail.com",
     phone: "",
-    website: "",
+    website: "https://new-3d-landbase.vercel.app/",
     instagramUrl: "",
     linkedinUrl: "https://www.linkedin.com/in/tiago-lima-b2a56a1a0/",
     whatsappNumber: "+55 21 99683-6857",
     whatsappMessage:
-      "Olá, bem vindo ao teste onetap",
-    presentationUrl: "https://project-zfz53-five.vercel.app/",
+      "Olá, Tiago. Conheci seu trabalho pelo One Tap e gostaria de conversar.",
+    presentationUrl: "https://new-3d-landbase.vercel.app/#work",
     calendarUrl: "",
     isActive: true,
+    leadsEnabled: true,
     services: [
       {
         title: "Estratégia",

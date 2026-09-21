@@ -1,14 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { hasAdminSession } from "@/lib/admin-auth";
+import { getAdminSession } from "@/lib/admin-auth";
 import { updateRuntimeProfile } from "@/lib/supabase";
+import { MAX_SERVICES } from "@/types/profile";
 
+function isHttpUrl(value: string) {
+  if (!URL.canParse(value)) return false;
+  const { protocol } = new URL(value);
+  return protocol === "http:" || protocol === "https:";
+}
+
+// `URL.canParse` aceita `javascript:` e `data:`, que viram href no perfil
+// público. Só http(s) passa.
 const optionalUrl = z
   .string()
   .trim()
   .max(2048)
-  .refine((value) => !value || URL.canParse(value), "URL inválida");
+  .refine((value) => !value || isHttpUrl(value), "Use uma URL http ou https.");
+
+// O avatar vai para uma tag <img>: aceita caminho interno ou URL http(s).
+const optionalAsset = z
+  .string()
+  .trim()
+  .max(2048)
+  .refine(
+    (value) => !value || value.startsWith("/") || isHttpUrl(value),
+    "Use um caminho interno (/imagem.png) ou uma URL http(s).",
+  );
+
+const serviceSchema = z.object({
+  title: z.string().trim().min(2).max(80),
+  detail: z.string().trim().max(160),
+});
 
 const profileSchema = z.object({
   profileId: z.string().uuid(),
@@ -17,7 +41,7 @@ const profileSchema = z.object({
   company: z.string().trim().max(120),
   headline: z.string().trim().max(160),
   bio: z.string().trim().max(1200),
-  avatarUrl: z.string().trim().max(2048),
+  avatarUrl: optionalAsset,
   presentationUrl: optionalUrl,
   whatsappNumber: z.string().trim().max(40),
   whatsappMessage: z.string().trim().max(500),
@@ -27,11 +51,14 @@ const profileSchema = z.object({
   website: optionalUrl,
   linkedinUrl: optionalUrl,
   instagramUrl: optionalUrl,
+  services: z.array(serviceSchema).max(MAX_SERVICES),
+  leadsEnabled: z.boolean(),
   isActive: z.boolean(),
 });
 
 export async function POST(request: NextRequest) {
-  if (!(await hasAdminSession())) {
+  const session = await getAdminSession();
+  if (!session) {
     return NextResponse.redirect(new URL("/admin", request.url), 303);
   }
 
@@ -53,6 +80,12 @@ export async function POST(request: NextRequest) {
     website: formData.get("website"),
     linkedinUrl: formData.get("linkedinUrl"),
     instagramUrl: formData.get("instagramUrl"),
+    // Slots fixos no formulário; linhas sem título são descartadas.
+    services: Array.from({ length: MAX_SERVICES }, (_, index) => ({
+      title: String(formData.get(`serviceTitle${index}`) ?? "").trim(),
+      detail: String(formData.get(`serviceDetail${index}`) ?? "").trim(),
+    })).filter((service) => service.title),
+    leadsEnabled: formData.get("leadsEnabled") === "on",
     isActive: formData.get("isActive") === "on",
   });
 
@@ -64,8 +97,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // O update filtra por owner_id: um profileId forjado no formulário não casa.
     const profile = await updateRuntimeProfile(
       parsed.data.profileId,
+      session.userId,
       parsed.data,
     );
     revalidatePath(`/t/${profile.slug}`);
