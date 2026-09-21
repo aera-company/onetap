@@ -157,6 +157,7 @@ export default async function EditCardPage({
               defaultValue={card.location}
               maxLength={120}
             />
+            <small>Aparece no perfil de quem encostar este cartão.</small>
           </label>
           <label className="admin-switch admin-switch--card">
             <input

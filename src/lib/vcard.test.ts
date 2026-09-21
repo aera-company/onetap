@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createVCard } from "@/lib/vcard";
+import { createVCard, foldVCardLine } from "@/lib/vcard";
 import type { Profile } from "@/types/profile";
 
 function makeProfile(overrides: Partial<Profile> = {}): Profile {
@@ -98,4 +98,29 @@ describe("createVCard", () => {
     expect(lines(vcard).filter((line) => line.startsWith("NOTE:"))).toHaveLength(1);
     expect(lines(vcard).every((line) => !line.includes("\n"))).toBe(true);
   });
+
+  it("inclui a foto e dobra linhas longas", () => {
+    const base64 = "A".repeat(300);
+    const vcard = createVCard(makeProfile(), { type: "JPEG", base64 });
+
+    expect(vcard).toContain("PHOTO;ENCODING=b;TYPE=JPEG:");
+    for (const line of lines(vcard)) expect(line.length).toBeLessThanOrEqual(75);
+    // Desdobrar (tirar CRLF + espaço) devolve o base64 inteiro.
+    expect(vcard.replaceAll("\r\n ", "")).toContain(base64);
+  });
 });
+
+describe("foldVCardLine", () => {
+  it("não mexe em linhas curtas", () => {
+    expect(foldVCardLine("FN:Tiago Lima")).toBe("FN:Tiago Lima");
+  });
+
+  it("continua com espaço a cada 74 caracteres depois dos primeiros 75", () => {
+    const folded = foldVCardLine("X".repeat(200)).split("\r\n");
+
+    expect(folded[0]).toHaveLength(75);
+    expect(folded.slice(1).every((part) => part.startsWith(" "))).toBe(true);
+    expect(folded.map((part, i) => (i ? part.slice(1) : part)).join("")).toBe("X".repeat(200));
+  });
+});
+

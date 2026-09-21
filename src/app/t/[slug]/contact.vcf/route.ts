@@ -1,4 +1,5 @@
 import { NextRequest, after } from "next/server";
+import { resolveContactPhoto } from "@/lib/contact-photo";
 import { createVCard } from "@/lib/vcard";
 import { getRuntimeCard, getRuntimeProfile, recordEvent } from "@/lib/supabase";
 
@@ -42,7 +43,9 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 
-  return new Response(createVCard(profile), {
+  const photo = await resolveContactPhoto(profile.logoUrl, request.nextUrl.origin);
+
+  return new Response(createVCard(profile, photo), {
     headers: {
       "Content-Type": "text/vcard; charset=utf-8",
       "Content-Disposition": `attachment; filename="${filename}.vcf"`,

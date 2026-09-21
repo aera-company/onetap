@@ -242,6 +242,7 @@ export default async function AdminCardsPage({
                 placeholder="Rio de Janeiro"
                 maxLength={120}
               />
+              <small>Campanha e local aparecem no perfil de quem encostar o cartão.</small>
             </label>
           </div>
           <label className="admin-switch admin-switch--card">

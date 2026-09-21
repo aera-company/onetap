@@ -883,8 +883,95 @@ a {
   text-decoration: none;
 }
 
+/* Botão com a mesma cara dos links de ação (Mostrar QR). */
+.action-link--button {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--line);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* QR em tela cheia. */
+.qr-sheet {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--ink);
+  background: var(--porcelain);
+}
+
+.qr-sheet::backdrop {
+  background: var(--porcelain);
+}
+
+.qr-sheet[open] {
+  animation: aera-fade 260ms var(--ease-out) both;
+}
+
+.qr-sheet__body {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 32px 20px calc(32px + env(safe-area-inset-bottom));
+}
+
+.qr-sheet__code {
+  width: min(78vw, 420px);
+  aspect-ratio: 1;
+  border: 1px solid var(--line-strong);
+}
+
+.qr-sheet__code svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.qr-sheet__name {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(1.8rem, 9vw, 3rem);
+  font-stretch: 90%;
+  font-weight: 650;
+  letter-spacing: -0.036em;
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.qr-sheet__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.qr-sheet__actions button {
+  min-height: 46px;
+  padding: 0 18px;
+  border: 1px solid var(--line-strong);
+  background: none;
+  color: inherit;
+  font-family: var(--sans);
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .action-link[href]:hover {
+    color: var(--porcelain);
+    background: var(--white);
+  }
+
+  .action-link--button:hover {
     color: var(--porcelain);
     background: var(--white);
   }

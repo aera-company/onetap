@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProfilePage } from "@/components/ProfilePage";
+import QRCode from "qrcode";
+import { getSiteUrl } from "@/lib/site";
 import { getRuntimeCard, getRuntimeProfile } from "@/lib/supabase";
 
 type PublicProfilePageProps = {
@@ -64,10 +66,24 @@ export default async function PublicProfilePage({
     );
   }
 
+  // O QR leva ao mesmo perfil, pelo mesmo cartão: quem escaneia também vê
+  // o contexto dele, e a origem continua creditada ao cartão.
+  const shareUrl = `${await getSiteUrl()}/t/${profile.slug}${
+    card ? `?card=${encodeURIComponent(card.code)}` : ""
+  }`;
+  const qrSvg = await QRCode.toString(shareUrl, {
+    type: "svg",
+    errorCorrectionLevel: "M",
+    margin: 2,
+    color: { dark: "#0a0a0a", light: "#f1efe8" },
+  });
+
   return (
     <ProfilePage
+      share={{ url: shareUrl, svg: qrSvg }}
       profile={profile}
       cardCode={card?.code ?? cardCode}
+      cardContext={card ? { campaign: card.campaign, location: card.location } : undefined}
       leadState={leadState}
     />
   );

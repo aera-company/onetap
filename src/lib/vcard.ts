@@ -8,7 +8,25 @@ function escapeVCardValue(value: string) {
     .replaceAll(";", "\\;");
 }
 
-export function createVCard(profile: Profile) {
+/** Foto do contato já em base64 (JPEG ou PNG), resolvida pela rota. */
+export type VCardPhoto = {
+  type: "JPEG" | "PNG";
+  base64: string;
+};
+
+/**
+ * RFC 2425/6350: linhas longas são dobradas a cada 75 caracteres, e cada
+ * continuação começa com um espaço. Sem isso, a foto em base64 (uma linha de
+ * milhares de caracteres) é recusada por alguns importadores de agenda.
+ */
+export function foldVCardLine(line: string) {
+  if (line.length <= 75) return line;
+  const parts = [line.slice(0, 75)];
+  for (let i = 75; i < line.length; i += 74) parts.push(` ${line.slice(i, i + 74)}`);
+  return parts.join("\r\n");
+}
+
+export function createVCard(profile: Profile, photo?: VCardPhoto) {
   const [firstName, ...lastNameParts] = profile.name.split(" ");
   const lastName = lastNameParts.join(" ");
   const lines = [
@@ -29,7 +47,9 @@ export function createVCard(profile: Profile) {
     );
   }
 
+  if (photo) lines.push(`PHOTO;ENCODING=b;TYPE=${photo.type}:${photo.base64}`);
+
   lines.push(`NOTE:${escapeVCardValue(profile.headline)}`, "END:VCARD");
 
-  return `${lines.join("\r\n")}\r\n`;
+  return `${lines.map(foldVCardLine).join("\r\n")}\r\n`;
 }

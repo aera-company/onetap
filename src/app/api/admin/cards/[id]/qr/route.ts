@@ -34,8 +34,8 @@ export async function GET(request: NextRequest, { params }: QrRouteContext) {
     margin: 2,
     width: 720,
     color: {
-      dark: "#171c19",
-      light: "#fcfdf9",
+      dark: "#0a0a0a",
+      light: "#f1efe8",
     },
   });
   const download = request.nextUrl.searchParams.get("download") === "1";

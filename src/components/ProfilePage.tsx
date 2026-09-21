@@ -12,14 +12,19 @@ import {
 } from "@/components/icons";
 import { ProfileTracker } from "@/components/ProfileTracker";
 import { LeadForm } from "@/components/LeadForm";
+import { ShowQr } from "@/components/ShowQr";
 
 type ProfilePageProps = {
   profile: Profile;
   cardCode?: string;
+  /** Campanha e local do cartão que abriu a página (só os campos públicos). */
+  cardContext?: { campaign: string; location: string };
   leadState?: string;
+  /** URL do perfil (com o cartão) e o QR dela, gerados no servidor. */
+  share?: { url: string; svg: string };
 };
 
-export function ProfilePage({ profile, cardCode, leadState }: ProfilePageProps) {
+export function ProfilePage({ profile, cardCode, cardContext, leadState, share }: ProfilePageProps) {
   const showcase = getPersonalShowcase(profile.slug);
   const whatsappUrl = buildWhatsappUrl(
     profile.whatsappNumber,
@@ -28,6 +33,11 @@ export function ProfilePage({ profile, cardCode, leadState }: ProfilePageProps) 
   const headline = showcase?.headline ?? profile.headline;
   const bio = showcase?.bio ?? profile.bio;
   const presentationUrl = showcase?.portfolioUrl ?? profile.presentationUrl;
+  // Quem chegou por um cartão vê o contexto dele: "Networking · Rio de Janeiro".
+  const context = [cardContext?.campaign, cardContext?.location]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(" · ");
   const contactUrl = `/t/${profile.slug}/contact.vcf${
     cardCode ? `?card=${encodeURIComponent(cardCode)}` : ""
   }`;
@@ -47,7 +57,7 @@ export function ProfilePage({ profile, cardCode, leadState }: ProfilePageProps) 
         </a>
         <span className="profile-nav__signal">
           <span />
-          Pronto para conectar
+          {cardContext?.location?.trim() || "Pronto para conectar"}
         </span>
       </header>
 
@@ -81,8 +91,8 @@ export function ProfilePage({ profile, cardCode, leadState }: ProfilePageProps) 
             <TapIcon />
           </span>
           <span>
-            <strong>Conectado via One Tap</strong>
-            <small>NFC · QR · Link direto</small>
+            <strong>{context || "Conectado via One Tap"}</strong>
+            <small>{context ? "Via cartão One Tap" : "NFC · QR · Link direto"}</small>
           </span>
         </div>
       </section>
@@ -131,6 +141,7 @@ export function ProfilePage({ profile, cardCode, leadState }: ProfilePageProps) 
               external
             />
           ) : null}
+          {share ? <ShowQr svg={share.svg} url={share.url} name={profile.name} /> : null}
         </div>
       </section>
 
