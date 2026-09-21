@@ -19,24 +19,30 @@ const showcases: Record<string, PersonalShowcase> = {
     headline:
       "Strategy, creative, technology and AI. From first thought to first version running.",
     bio: "Na AERA, conecto estratégia, criatividade e tecnologia para transformar ideias em marcas, produtos e sistemas prontos para ganhar movimento.",
-    portfolioUrl: "https://new-3d-landbase.vercel.app/#work",
+    portfolioUrl: "https://aera.company/#work",
     whatsappMessage:
       "Olá, Tiago. Conheci seu trabalho pelo One Tap e gostaria de conversar.",
+    // A mesma seleção e ordem do site (aera.company, Selected Work 01–04).
     projects: [
       {
-        name: "GAVEA",
-        detail: "Digital product · Operational intelligence",
-        url: "https://new-3d-landbase.vercel.app/work/gavea-one",
+        name: "MERUS",
+        detail: "Brand · Film · Landing page",
+        url: "https://aera.company/work/merus",
       },
       {
         name: "Casa Nativa",
         detail: "Brand · Character · Book · Website · System",
-        url: "https://new-3d-landbase.vercel.app/work/casa-nativa",
+        url: "https://aera.company/work/casa-nativa",
       },
       {
-        name: "MERUS",
-        detail: "Brand · Film · Landing page",
-        url: "https://new-3d-landbase.vercel.app/work/merus",
+        name: "APACHE",
+        detail: "Concept · Masterplan · Narrative",
+        url: "https://aera.company/work/apache",
+      },
+      {
+        name: "FARMARCAS",
+        detail: "Expansion proposal · Method · Campaign",
+        url: "https://aera.company/work/farmarcas",
       },
     ],
     practice: [

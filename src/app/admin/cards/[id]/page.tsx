@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { CopyCardUrl } from "@/components/admin/CopyCardUrl";
+import { WriteNfcTag } from "@/components/admin/WriteNfcTag";
 import { NoProfileState } from "@/components/admin/NoProfileState";
 import { getAdminSession } from "@/lib/admin-auth";
 import { getSiteUrl } from "@/lib/site";
@@ -111,6 +112,7 @@ export default async function EditCardPage({
             <span>URL para gravar no NFC</span>
             <code>{cardUrl}</code>
             <CopyCardUrl url={cardUrl} />
+            <WriteNfcTag url={cardUrl} />
           </div>
         </section>
 

@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAdminSession, isAdminConfigured } from "@/lib/admin-auth";
@@ -25,16 +24,8 @@ export default async function AdminLoginPage({
     <main className="admin-login">
       <section className="admin-login__intro">
         <Link className="admin-login__brand" href="/">
-          <span>
-            <Image
-              src="/brand/aera-symbol.png"
-              alt=""
-              width={28}
-              height={28}
-              priority
-            />
-          </span>
-          ONE TAP
+          <span className="aera-mark admin-brand__mark" aria-hidden="true" />
+          <span className="admin-login__product">One Tap</span>
         </Link>
         <div>
           <p className="admin-kicker">AERA · Control room</p>

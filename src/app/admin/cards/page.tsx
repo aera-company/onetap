@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { CopyCardUrl } from "@/components/admin/CopyCardUrl";
+import { WriteNfcTag } from "@/components/admin/WriteNfcTag";
 import { NoProfileState } from "@/components/admin/NoProfileState";
 import { getAdminSession } from "@/lib/admin-auth";
 import { getSiteUrl } from "@/lib/site";
@@ -164,6 +165,7 @@ export default async function AdminCardsPage({
 
                 <div className="admin-card-record__actions">
                   <CopyCardUrl url={cardUrl} compact />
+                  <WriteNfcTag url={cardUrl} compact />
                   <a
                     href={`/api/admin/cards/${card.id}/qr?download=1`}
                     className="admin-card-text-action"

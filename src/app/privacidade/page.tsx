@@ -19,7 +19,7 @@ export default async function PrivacyPage({ searchParams }: PrivacyPageProps) {
 
   return (
     <main className="legal-page">
-      <a className="wordmark" href={backHref}>ONE TAP</a>
+      <a className="wordmark" href={backHref} aria-label="AERA One Tap"><span className="aera-mark" aria-hidden="true" /><span className="wordmark__product">One Tap</span></a>
       <article>
         <p className="eyebrow">Privacidade</p>
         <h1>Dados mínimos. Uso transparente.</h1>

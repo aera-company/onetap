@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { InstallOneTap } from "@/components/admin/InstallOneTap";
@@ -51,16 +50,9 @@ export function AdminShell({ active, children, profileName }: AdminShellProps) {
       <aside className="admin-sidebar">
         <div>
           <Link className="admin-brand" href="/admin/dashboard">
-            <span className="admin-brand__symbol">
-              <Image
-                src="/brand/aera-symbol.png"
-                alt=""
-                width={26}
-                height={26}
-              />
-            </span>
+            <span className="aera-mark admin-brand__mark" aria-hidden="true" />
             <span>
-              <strong>ONE TAP</strong>
+              <strong>One Tap</strong>
               <small>Control room</small>
             </span>
           </Link>

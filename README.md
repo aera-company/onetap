@@ -198,6 +198,9 @@ Em `/admin/cards` é possível:
 - identificar campanha e local;
 - ativar ou pausar um cartão;
 - copiar a URL exata para gravação em uma tag NFC;
+- gravar a URL direto na tag pelo próprio painel (**Gravar no cartão**), usando
+  Web NFC — funciona no Chrome para Android, em HTTPS; no iPhone o painel
+  orienta a copiar a URL e gravar com um app como o NFC Tools;
 - gerar e baixar o QR Code em SVG;
 - acompanhar acessos e ações por cartão.
 

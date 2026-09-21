@@ -3,7 +3,7 @@ import Image from "next/image";
 export default function OfflinePage() {
   return (
     <main className="state-page">
-      <div className="state-page__mark">ONE TAP</div>
+      <div className="state-page__mark" aria-label="AERA One Tap"><span className="aera-mark" aria-hidden="true" /><span className="wordmark__product">One Tap</span></div>
       <div>
         <div className="avatar avatar--brand">
           <Image

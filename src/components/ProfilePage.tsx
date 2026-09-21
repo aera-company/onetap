@@ -35,10 +35,15 @@ export function ProfilePage({ profile, cardCode, leadState }: ProfilePageProps) 
   return (
     <main className="profile-shell">
       <ProfileTracker slug={profile.slug} cardCode={cardCode} />
+      <div className="field" aria-hidden="true">
+        <i />
+        <i />
+      </div>
 
       <header className="profile-nav" aria-label="Identificação do produto">
         <a className="wordmark" href="#top" aria-label="One Tap, voltar ao início">
-          ONE TAP
+          <span className="aera-mark" aria-hidden="true" />
+          <span className="wordmark__product">One Tap</span>
         </a>
         <span className="profile-nav__signal">
           <span />
@@ -47,6 +52,7 @@ export function ProfilePage({ profile, cardCode, leadState }: ProfilePageProps) 
       </header>
 
       <section className="hero" id="top">
+        <span className="hero__signal" aria-hidden="true" />
         <div className="hero__identity">
           {/* O avatar é editável no painel e pode apontar para qualquer host.
               next/image exigiria remotePatterns e lançaria erro em runtime —

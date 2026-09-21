@@ -1,6 +1,29 @@
 import type { Metadata, Viewport } from "next";
+import { Archivo, Geist_Mono, Instrument_Sans } from "next/font/google";
 import { PwaRegistration } from "@/components/PwaRegistration";
 import "@/app/globals.css";
+
+// As mesmas famílias da landing da AERA (aera.company): Instrument Sans
+// semi-condensada nos títulos, Archivo nos rótulos, Geist Mono nos índices.
+// next/font serve os arquivos do próprio domínio, então a CSP (font-src 'self')
+// não muda.
+const display = Instrument_Sans({
+  variable: "--font-aera-display",
+  subsets: ["latin"],
+  axes: ["wdth"],
+});
+
+const sans = Archivo({
+  variable: "--font-aera-sans",
+  subsets: ["latin"],
+  axes: ["wdth"],
+});
+
+const mono = Geist_Mono({
+  variable: "--font-aera-mono",
+  subsets: ["latin"],
+  weight: ["400"],
+});
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
@@ -56,8 +79,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#eef0ec",
-  colorScheme: "light",
+  themeColor: "#0a0a0a",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({
@@ -66,7 +89,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
       <body>
         {children}
         <PwaRegistration />

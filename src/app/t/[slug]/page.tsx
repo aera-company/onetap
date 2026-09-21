@@ -51,7 +51,7 @@ export default async function PublicProfilePage({
   if (card && !card.isActive) {
     return (
       <main className="state-page">
-        <div className="state-page__mark">ONE TAP</div>
+        <div className="state-page__mark" aria-label="AERA One Tap"><span className="aera-mark" aria-hidden="true" /><span className="wordmark__product">One Tap</span></div>
         <div>
           <p className="eyebrow">Cartão indisponível</p>
           <h1>Este cartão foi desativado.</h1>

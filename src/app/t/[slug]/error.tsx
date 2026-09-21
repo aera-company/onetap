@@ -16,7 +16,7 @@ export default function ProfileError({ error, reset }: ProfileErrorProps) {
 
   return (
     <main className="state-page">
-      <div className="state-page__mark">ONE TAP</div>
+      <div className="state-page__mark" aria-label="AERA One Tap"><span className="aera-mark" aria-hidden="true" /><span className="wordmark__product">One Tap</span></div>
       <div>
         <p className="eyebrow">Indisponível no momento</p>
         <h1>Não conseguimos carregar este perfil.</h1>
