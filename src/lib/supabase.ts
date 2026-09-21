@@ -243,18 +243,42 @@ function mapCard(row: SupabaseCardRow): Card {
   };
 }
 
-// Os dados de `src/data/profiles.ts` são semente de desenvolvimento e podem
-// estar desatualizados. Usá-los como fallback quando o Supabase está
-// configurado mas indisponível serviria um perfil possivelmente já desativado
-// no banco — então nesse caso o erro sobe e a página falha fechada.
+function isSupabaseNetworkError(error: unknown) {
+  if (!(error instanceof TypeError) || error.message !== "fetch failed") {
+    return false;
+  }
+
+  const cause = (error as TypeError & { cause?: { code?: string } }).cause;
+  return ["ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED", "ETIMEDOUT"].includes(
+    cause?.code ?? "",
+  );
+}
+
+function getOfflineProfile(slug: string) {
+  const profile = getProfileBySlug(slug);
+
+  // O formulário depende do banco. No modo de contingência ele precisa sumir,
+  // ou a página ofereceria uma ação que não consegue persistir o contato.
+  return profile ? { ...profile, leadsEnabled: false } : undefined;
+}
+
+// Para o uso pessoal, o cartão público continua disponível durante uma falha
+// de DNS/rede do Supabase. Erros HTTP do banco ainda sobem normalmente: assim
+// problemas de schema, permissão ou configuração não ficam mascarados.
 export async function getRuntimeProfile(slug: string, fresh = false) {
   if (!getSupabaseConfig()) return getProfileBySlug(slug);
 
-  const rows = await supabaseRequest<SupabaseProfileRow[]>(
-    `profiles?select=*&slug=eq.${encodeURIComponent(slug)}&limit=1`,
-    fresh ? { cache: "no-store" } : { next: { revalidate: 30 } },
-  );
-  return rows[0] ? mapProfile(rows[0]) : undefined;
+  try {
+    const rows = await supabaseRequest<SupabaseProfileRow[]>(
+      `profiles?select=*&slug=eq.${encodeURIComponent(slug)}&limit=1`,
+      fresh ? { cache: "no-store" } : { next: { revalidate: 30 } },
+    );
+    return rows[0] ? mapProfile(rows[0]) : undefined;
+  } catch (error) {
+    if (!isSupabaseNetworkError(error)) throw error;
+    console.error("[profile] Supabase indisponível; usando perfil local.");
+    return getOfflineProfile(slug);
+  }
 }
 
 export async function getAdminUserByEmail(email: string) {
@@ -291,11 +315,17 @@ export async function getRuntimeCard(code?: string, fresh = false) {
   if (!code) return undefined;
   if (!getSupabaseConfig()) return getCardByCode(code);
 
-  const rows = await supabaseRequest<SupabaseCardRow[]>(
-    `cards?select=*&card_code=eq.${encodeURIComponent(code)}&limit=1`,
-    fresh ? { cache: "no-store" } : { next: { revalidate: 30 } },
-  );
-  return rows[0] ? mapCard(rows[0]) : undefined;
+  try {
+    const rows = await supabaseRequest<SupabaseCardRow[]>(
+      `cards?select=*&card_code=eq.${encodeURIComponent(code)}&limit=1`,
+      fresh ? { cache: "no-store" } : { next: { revalidate: 30 } },
+    );
+    return rows[0] ? mapCard(rows[0]) : undefined;
+  } catch (error) {
+    if (!isSupabaseNetworkError(error)) throw error;
+    console.error("[card] Supabase indisponível; usando cartão local.");
+    return getCardByCode(code);
+  }
 }
 
 /** Retorno de `public.onetap_dashboard_stats`, contado no Postgres. */
