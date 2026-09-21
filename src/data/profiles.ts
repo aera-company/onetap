@@ -16,7 +16,7 @@ export const profiles: Profile[] = [
     phone: "",
     website: "https://aera.company/",
     instagramUrl: "",
-    linkedinUrl: "https://www.linkedin.com/in/tiago-lima-b2a56a1a0/",
+    linkedinUrl: "",
     whatsappNumber: "+55 21 99683-6857",
     whatsappMessage:
       "Olá, Tiago. Conheci seu trabalho pelo One Tap e gostaria de conversar.",

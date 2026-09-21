@@ -28,7 +28,7 @@ values (
   '+55 21 99683-6857',
   'Olá, Tiago. Conheci seu trabalho pelo One Tap e gostaria de conversar.',
   'sales@aera.company',
-  'https://www.linkedin.com/in/tiago-lima-b2a56a1a0/',
+  null,
   '[
     {"title": "Estratégia", "detail": "Clareza para marcas, produtos e novas ideias."},
     {"title": "Branding", "detail": "Sistemas visuais que constroem presença."},
