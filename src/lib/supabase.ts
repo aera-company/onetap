@@ -276,7 +276,7 @@ export async function getRuntimeProfile(slug: string, fresh = false) {
     return rows[0] ? mapProfile(rows[0]) : undefined;
   } catch (error) {
     if (!isSupabaseNetworkError(error)) throw error;
-    console.error("[profile] Supabase indisponível; usando perfil local.");
+    console.warn("[profile] Supabase indisponível; usando perfil local.");
     return getOfflineProfile(slug);
   }
 }
@@ -323,7 +323,7 @@ export async function getRuntimeCard(code?: string, fresh = false) {
     return rows[0] ? mapCard(rows[0]) : undefined;
   } catch (error) {
     if (!isSupabaseNetworkError(error)) throw error;
-    console.error("[card] Supabase indisponível; usando cartão local.");
+    console.warn("[card] Supabase indisponível; usando cartão local.");
     return getCardByCode(code);
   }
 }
@@ -729,7 +729,11 @@ export async function recordEvent(input: EventInput): Promise<EventResult> {
 
     return { persisted: true };
   } catch (error) {
-    console.error("[analytics] Supabase request failed", error);
+    if (isSupabaseNetworkError(error)) {
+      console.warn("[analytics] Supabase indisponível; evento não persistido.");
+    } else {
+      console.error("[analytics] Supabase request failed", error);
+    }
     return { persisted: false, reason: "request_failed" };
   }
 }
