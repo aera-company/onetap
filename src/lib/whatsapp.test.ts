@@ -3,8 +3,8 @@ import { buildWhatsappUrl } from "@/lib/whatsapp";
 
 describe("buildWhatsappUrl", () => {
   it("remove máscara do número", () => {
-    expect(buildWhatsappUrl("+55 (21) 99683-6857", "oi")).toBe(
-      "https://wa.me/5521996836857?text=oi",
+    expect(buildWhatsappUrl("+55 (21) 99683-6847", "oi")).toBe(
+      "https://wa.me/5521996836847?text=oi",
     );
   });
 

@@ -25,7 +25,7 @@ values (
   'Na AERA, conecto estratégia, criatividade e tecnologia para transformar ideias em marcas, produtos e sistemas prontos para ganhar movimento.',
   '/brand/aera-symbol.png',
   'https://aera.company/#work',
-  '+55 21 99683-6857',
+  '+55 21 99683-6847',
   'Olá, Tiago. Conheci seu trabalho pelo One Tap e gostaria de conversar.',
   'sales@aera.company',
   null,
